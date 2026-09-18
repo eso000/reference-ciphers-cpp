@@ -1,0 +1,44 @@
+#ifndef BLOWFISH_HEADER
+#define BLOWFISH_HEADER
+
+#include <stdint.h>
+
+class Blowfish{
+public:
+	
+	
+	std::vector<uint32_t> SBoxes0;
+	std::vector<uint32_t> SBoxes1;
+	std::vector<uint32_t> SBoxes2;
+	std::vector<uint32_t> SBoxes3;
+	std::vector<uint32_t> Subkeys;
+	
+	
+
+	void encrypt_block(uint8_t *lb,uint8_t *rb);
+
+	void decrypt_block(uint8_t *lb,uint8_t *rb);
+
+	void generateKeys(std::string key);
+
+	//void generateKeys(char* key);
+	
+	void encryptECB(uint8_t *plt, int len);
+
+	void decryptECB(uint8_t *plt, int len);
+
+	void encryptCBC(uint8_t *plt, int len, uint8_t *iv);
+
+	void encryptPCBC(uint8_t *plt, int len, uint8_t *iv);
+
+	void encryptCFB(uint8_t *plt, int len, uint8_t *iv);
+
+	std::vector<uint8_t> encrypt(std::vector<uint8_t> plt, std::vector<uint8_t> iv);
+	
+	void encrypt_File(char* path);
+
+	void decrypt_File(char* path);
+
+};
+
+#endif
