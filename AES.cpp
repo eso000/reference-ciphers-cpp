@@ -31,7 +31,7 @@
 
 
 
-#define pad(pvec, missing) for(int i = 0; i <= missing; ++i)\
+#define pad(pvec, missing) for(int i = 0; i < missing; ++i)\
                                         pvec.push_back('0');
 
 
@@ -211,14 +211,16 @@
 
 
 	void AES::generateKeys(std::string key){
-		if (key.size() < 32){
-                          pad(key,32-key.length());
-                 }else if (key.length() < 48){
-                        pad(key,48-key.length());
-                 }else if (key.length() < 64){
-                         pad(key,64-key.length());
-                 }else
-                         key = key.substr(0,64);
+		int target = 64;
+		if ((int)key.size() <= 32)
+			target = 32;
+		else if ((int)key.size() <= 48)
+			target = 48;
+		int m = target - (int)key.size();
+		if (m > 0)
+			pad(key, m);
+		if ((int)key.size() > 64)
+			key = key.substr(0,64);
  
 		
 		int N = key.length()/8;
@@ -298,6 +300,29 @@
 
 	}
 
+	void AES::encrypt_block192(uint8_t *p)
+	{	
+		uint8_t temp[16];
+
+		uint32_t columnA[4];
+		uint32_t columnB[4];
+
+		firstround(columnA, p, 0)
+		round(columnA,columnB, 1)
+		round(columnB,columnA, 2)
+		round(columnA,columnB, 3)
+		round(columnB,columnA, 4)
+		round(columnA,columnB, 5)
+		round(columnB,columnA, 6)
+		round(columnA,columnB, 7)
+		round(columnB,columnA, 8)
+		round(columnA,columnB, 9)
+		round(columnB,columnA,10)
+		round(columnA,columnB,11)
+
+		lastround(columnB, p, 48)
+	}
+
 	void AES::encrypt_block256(uint8_t *p)
 	{	
 		uint8_t temp[16];
@@ -322,6 +347,53 @@
 		round(columnA,columnB,13)
 
 		lastround(columnB, p, 56)
+	}
+
+	void AES::decrypt_block128(uint8_t *p)
+	{	
+		uint8_t temp[16];
+		uint32_t columnA[4];
+		uint32_t columnB[4];
+		
+		firstround(columnB, p, 40)
+		invShiftRowsSB(columnB, columnA)
+
+		invround(columnA,columnB, 9)
+		invround(columnA,columnB, 8)
+		invround(columnA,columnB, 7)
+		invround(columnA,columnB, 6)
+		invround(columnA,columnB, 5)
+		invround(columnA,columnB, 4)
+		invround(columnA,columnB, 3)
+		invround(columnA,columnB, 2)
+		invround(columnA,columnB, 1)
+
+		lastInvround(columnA, p, 0)		
+	}
+
+
+	void AES::decrypt_block192(uint8_t *p)
+	{	
+		uint8_t temp[16];
+		uint32_t columnA[4];
+		uint32_t columnB[4];
+		
+		firstround(columnB, p, 48)
+		invShiftRowsSB(columnB, columnA)
+
+		invround(columnA,columnB,11)
+		invround(columnA,columnB,10)
+		invround(columnA,columnB, 9)
+		invround(columnA,columnB, 8)
+		invround(columnA,columnB, 7)
+		invround(columnA,columnB, 6)
+		invround(columnA,columnB, 5)
+		invround(columnA,columnB, 4)
+		invround(columnA,columnB, 3)
+		invround(columnA,columnB, 2)
+		invround(columnA,columnB, 1)
+
+		lastInvround(columnA, p, 0)		
 	}
 
 void AES::decrypt_block256(uint8_t *p)
@@ -363,7 +435,7 @@ void AES::decrypt_block256(uint8_t *p)
 				break;
 			case 52:
 				for(uint8_t *i = plt; i+16<=plt + len; i = i + 16)
-					encrypt_block256(i);
+					encrypt_block192(i);
 				break;
 			case 44:
 				for(uint8_t *i = plt; i+16<=plt + len; i = i + 16)
@@ -376,14 +448,10 @@ void AES::decrypt_block256(uint8_t *p)
 	std::vector<uint8_t> AES::encrypt(std::vector<uint8_t> plt)
 	{
 		int l = plt.size();
-		int m = 0;
-		if (l%16 != 0) //PKCS padding
-		{
-			m = (l/16+1)*16-l;
-			for (int i = 0; i < m; ++i)
-				plt.push_back((uint8_t) m);
-		}
-		encrypt(&plt[0], l+m);
+		int m = 16 - (l%16);
+		for (int i = 0; i < m; ++i)
+			plt.push_back((uint8_t) m);
+		encrypt(&plt[0], plt.size());
 		return plt;
 	}
 
@@ -395,9 +463,13 @@ void AES::decrypt_block256(uint8_t *p)
 				for(uint8_t *i = plt; i+16<=plt + len; i = i + 16)
 					decrypt_block256(i);
 				break;
+			case 52:
+				for(uint8_t *i = plt; i+16<=plt + len; i = i + 16)
+					decrypt_block192(i);
+				break;
 			case 44:
 				for(uint8_t *i = plt; i+16<=plt + len; i = i + 16)
-					decrypt_block256(i);
+					decrypt_block128(i);
 				break;
 		}
 	}
@@ -405,8 +477,20 @@ void AES::decrypt_block256(uint8_t *p)
 
 	std::vector<uint8_t> AES::decrypt(std::vector<uint8_t> plt)
 	{
-		
 		decrypt(&plt[0], plt.size());
+		int l = plt.size();
+		if (l > 0)
+		{
+			int padok = 1;
+			uint8_t n = plt[l-1];
+			if (n < 1 || n > 16)
+				padok = 0;
+			for (int i = 0; i < n && padok; ++i)
+				if (plt[l-1-i] != n)
+					padok = 0;
+			if (padok)
+				plt.resize(l - n);
+		}
 		return plt;
 	}
 

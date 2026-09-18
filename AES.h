@@ -37,7 +37,13 @@ public:
 
 	void encrypt_block128(uint8_t *p);
 
+	void encrypt_block192(uint8_t *p);
+
 	void encrypt_block256(uint8_t *p);
+
+	void decrypt_block128(uint8_t *p);
+
+	void decrypt_block192(uint8_t *p);
 
 	void decrypt_block256(uint8_t *p);
 
