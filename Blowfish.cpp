@@ -158,36 +158,40 @@
 
 	void Blowfish::encryptPCBC(uint8_t *plt, int len, uint8_t *iv)
 	{
+		uint8_t t[8];
 		for(uint8_t *i = plt; i+8<=plt + len; i = i + 8)
 		{
+			copy8(t,i)
 			xor8(i,iv)
 			encrypt_block(i,i+4);
-			xor8(iv,i)
+			xor8(t,i)
+			copy8(iv,t)
 		}
 	}
 
 	void Blowfish::encryptCFB(uint8_t *plt, int len, uint8_t *iv)
 	{
+		uint8_t reg[8];
+		copy8(reg,iv)
 		for(uint8_t *i = plt; i+8<=plt + len; i = i + 8)
 		{
-			encrypt_block(iv,iv+4);
-			xor8(iv,i)
-
+			encrypt_block(reg,reg+4);
+			xor8(i,reg)
+			copy8(reg,i)
 		}
 	}
 
 	std::vector<uint8_t> Blowfish::encrypt(std::vector<uint8_t> plt, std::vector<uint8_t> iv)
 	{
 		int l = plt.size();
-		int m = l%8 != 0 ? (l/8+1)*8-l: 0;
-		if (l%8 != 0) //PKCS padding
-			padPKCS(plt, m)
+		int m = 8 - (l%8);
+		padPKCS(plt, m)
 
 		l = iv.size();
 		if (l <= 8 )
 			padPKCS(iv, 8-l)
 		
-		encryptECB(&plt[0], plt.size()-m);
+		encryptECB(&plt[0], plt.size());
 		
 		return plt;
 	}
@@ -197,9 +201,11 @@
 		std::ifstream input_file(path, std::ios::binary);
 		std::vector<uint8_t> vec((std::istreambuf_iterator<char>(input_file)), std::istreambuf_iterator<char>());
 		input_file.close();
+		int m = 8 - (vec.size()%8);
+		padPKCS(vec, m)
 		encryptECB(&vec[0], vec.size());
 		std::ofstream file(path);
-		file.write(reinterpret_cast<char*>(&vec[0]), vec.size() * sizeof(vec[0]));
+		file.write(reinterpret_cast<char*>(&vec[0]), vec.size());
     	file.close();
 	}
 
@@ -209,8 +215,22 @@
 		std::vector<uint8_t> vec((std::istreambuf_iterator<char>(input_file)), std::istreambuf_iterator<char>());
 		input_file.close();
 		decryptECB(&vec[0], vec.size());
+		int l = vec.size();
+		if (l > 0)
+		{
+			int padok = 1;
+			uint8_t n = vec[l-1];
+			if (n < 1 || n > 8)
+				padok = 0;
+			for (int i = 0; i < n && padok; ++i)
+				if (vec[l-1-i] != n)
+					padok = 0;
+			if (padok)
+				vec.resize(l - n);
+		}
 		std::ofstream file(path);
-		file.write(reinterpret_cast<char*>(&vec[0]), vec.size() * sizeof(vec[0]));
+		if (!vec.empty())
+			file.write(reinterpret_cast<char*>(&vec[0]), vec.size());
     	file.close();
 	}
 
