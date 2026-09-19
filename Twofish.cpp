@@ -1,6 +1,7 @@
 #include <vector>
 #include <string>
 #include <fstream>
+#include <stdexcept>
 
 #include "Twofish.h"
 
@@ -21,9 +22,6 @@
 								   		pvec.push_back((uint8_t) 0);\
 
 
-
-#define pad(pvec, missing) for(int i = 0; i <= missing; ++i)\
-					pvec.push_back('0');
 
 
 #define copy16(arr1, arr2) arr1[0] = *arr2;\
@@ -80,28 +78,28 @@
 
 
 #define MDSmult(hword) hword = ((byte3(temp)^MDSEF[byte2(temp)]^MDS5B[byte1(temp)]^MDS5B[byte0(temp)]))|\
-		  		  	 			 ((MDS5B[byte3(temp)]^MDSEF[byte2(temp)]^MDSEF[byte1(temp)]^byte0(temp))<<8)|\
-		  		  				 ((MDSEF[byte3(temp)]^MDS5B[byte2(temp)]^byte1(temp)^MDSEF[byte0(temp)])<<16)|\
-		  		  				 ((MDSEF[byte3(temp)]^byte2(temp)^MDSEF[byte1(temp)]^MDS5B[byte0(temp)])<<24);
+		  		  	 			 ((uint32_t)(MDS5B[byte3(temp)]^MDSEF[byte2(temp)]^MDSEF[byte1(temp)]^byte0(temp))<<8)|\
+		  		  				 ((uint32_t)(MDSEF[byte3(temp)]^MDS5B[byte2(temp)]^byte1(temp)^MDSEF[byte0(temp)])<<16)|\
+		  		  				 ((uint32_t)(MDSEF[byte3(temp)]^byte2(temp)^MDSEF[byte1(temp)]^MDS5B[byte0(temp)])<<24);
 
 #define h128(hword, hkey)  temp = ( q1[q0[q0[byte0(hword)]^*(hkey)]^*(hkey+4)])|\
-						    		((q0[q0[q1[byte1(hword)]^*(hkey+1)]^*(hkey+5)])<<8)|\
-						    		((q1[q1[q0[byte2(hword)]^*(hkey+2)]^*(hkey+6)])<<16)|\
-						    		((q0[q1[q1[byte3(hword)]^*(hkey+3)]^*(hkey+7)])<<24);\
+						    		((uint32_t)(q0[q0[q1[byte1(hword)]^*(hkey+1)]^*(hkey+5)])<<8)|\
+						    		((uint32_t)(q1[q1[q0[byte2(hword)]^*(hkey+2)]^*(hkey+6)])<<16)|\
+						    		((uint32_t)(q0[q1[q1[byte3(hword)]^*(hkey+3)]^*(hkey+7)])<<24);\
 						    		MDSmult(hword)
 
 
 #define h196(hword, hkey) temp =  ( q1[q0[q0[q1[byte0(hword)]^*(hkey)]^*(hkey+4)]^*(hkey+8)])|\
-						    		((q0[q0[q1[q1[byte1(hword)]^*(hkey+1)]^*(hkey+5)]^*(hkey+9)])<<8)|\
-						    		((q1[q1[q0[q0[byte2(hword)]^*(hkey+2)]^*(hkey+6)]^*(hkey+10)])<<16)|\
-						    		((q0[q1[q1[q0[byte3(hword)]^*(hkey+3)]^*(hkey+7)]^*(hkey+11)])<<24);\
+						    		((uint32_t)(q0[q0[q1[q1[byte1(hword)]^*(hkey+1)]^*(hkey+5)]^*(hkey+9)])<<8)|\
+						    		((uint32_t)(q1[q1[q0[q0[byte2(hword)]^*(hkey+2)]^*(hkey+6)]^*(hkey+10)])<<16)|\
+						    		((uint32_t)(q0[q1[q1[q0[byte3(hword)]^*(hkey+3)]^*(hkey+7)]^*(hkey+11)])<<24);\
 						    		MDSmult(hword)
 
 
 #define h256(hword, hkey) temp =  ( q1[q0[q0[q1[q1[byte0(hword)]^*(hkey)]^*(hkey+4)]^*(hkey+8)]^*(hkey+12)])|\
-						    		((q0[q0[q1[q1[q0[byte1(hword)]^*(hkey+1)]^*(hkey+5)]^*(hkey+9)]^*(hkey+13)])<<8)|\
-						    		((q1[q1[q0[q0[q0[byte2(hword)]^*(hkey+2)]^*(hkey+6)]^*(hkey+10)]^*(hkey+14)])<<16)|\
-						    		((q0[q1[q1[q0[q1[byte3(hword)]^*(hkey+3)]^*(hkey+7)]^*(hkey+11)]^*(hkey+15)])<<24);\
+						    		((uint32_t)(q0[q0[q1[q1[q0[byte1(hword)]^*(hkey+1)]^*(hkey+5)]^*(hkey+9)]^*(hkey+13)])<<8)|\
+						    		((uint32_t)(q1[q1[q0[q0[q0[byte2(hword)]^*(hkey+2)]^*(hkey+6)]^*(hkey+10)]^*(hkey+14)])<<16)|\
+						    		((uint32_t)(q0[q1[q1[q0[q1[byte3(hword)]^*(hkey+3)]^*(hkey+7)]^*(hkey+11)]^*(hkey+15)])<<24);\
 						    		MDSmult(hword)
 
 
@@ -158,7 +156,7 @@
 		return (uint8_t)p;
 	}
 
-	uint8_t Twofish::RSAmul(int i, uint8_t *p)
+	uint8_t Twofish::RSAmul(int i, const uint8_t *p)
 	{
 		uint8_t result = 0;
 		for (int t = 0; t < 8; ++t)
@@ -166,35 +164,20 @@
 		return result;
 	}
 
-	void Twofish::generateKeys(std::string mkey)
+	void Twofish::generateKeys(const std::vector<uint8_t>& key)
 	{
-		
-		if (mkey.size() < 32){
-                 	 pad(mkey,32-mkey.length());
-                }else if (mkey.length() < 48){
-                       pad(mkey,48-mkey.length());
-                }else if (mkey.length() < 64){
-                        pad(mkey,64-mkey.length());
-                }else
-                 	mkey = mkey.substr(0,64);
+		if (key.size() != 16 && key.size() != 24 && key.size() != 32)
+			throw std::invalid_argument("Twofish key must be 16, 24 or 32 bytes");
 
-		
-		int n = mkey.size()/2;
+		int n = (int)key.size();
 
-		uint8_t m[n];
-		
-		for (int i = 0 ;i < mkey.size() ;i= i+2 ) {
-			
-			m[i/2] = (uint8_t)std::stoul(mkey.substr(i,2), 0, 16);
-		}
-	
 		std::vector<uint8_t> S;
-		for (uint8_t *p = &m[0]; p < &m[0]+n; p = p + 8)
+		for (int i = 0; i < n; i = i + 8)
 		{
-			S.push_back(RSAmul(0,p));
-			S.push_back(RSAmul(1,p));
-			S.push_back(RSAmul(2,p));
-			S.push_back(RSAmul(3,p));
+			S.push_back(RSAmul(0, &key[i]));
+			S.push_back(RSAmul(1, &key[i]));
+			S.push_back(RSAmul(2, &key[i]));
+			S.push_back(RSAmul(3, &key[i]));
 		}
 
 		uint8_t s0 = 0;
@@ -209,35 +192,50 @@
 
 		for (int i = 0; i < 256; ++i)
 		{
-			if(S.size() == 16){
-				s0 = q1[q0[q0[q1[q1[i]^S[0]]^S[4]]^S[8]]^S[12]];
-				s1 = q0[q0[q1[q1[q0[i]^S[1]]^S[5]]^S[9]]^S[13]];
-				s2 = q1[q1[q0[q0[q0[i]^S[2]]^S[6]]^S[10]]^S[14]];
-				s3 = q0[q1[q1[q0[q1[i]^S[3]]^S[7]]^S[11]]^S[15]];
+			switch (n / 8)
+			{
+				case 4:
+					s0 = q1[q0[q0[q1[q1[i]^S[0]]^S[4]]^S[8]]^S[12]];
+					s1 = q0[q0[q1[q1[q0[i]^S[1]]^S[5]]^S[9]]^S[13]];
+					s2 = q1[q1[q0[q0[q0[i]^S[2]]^S[6]]^S[10]]^S[14]];
+					s3 = q0[q1[q1[q0[q1[i]^S[3]]^S[7]]^S[11]]^S[15]];
+					break;
+				case 3:
+					s0 = q1[q0[q0[q1[i]^S[0]]^S[4]]^S[8]];
+					s1 = q0[q0[q1[q1[i]^S[1]]^S[5]]^S[9]];
+					s2 = q1[q1[q0[q0[i]^S[2]]^S[6]]^S[10]];
+					s3 = q0[q1[q1[q0[i]^S[3]]^S[7]]^S[11]];
+					break;
+				case 2:
+					s0 = q1[q0[q0[i]^S[0]]^S[4]];
+					s1 = q0[q0[q1[i]^S[1]]^S[5]];
+					s2 = q1[q1[q0[i]^S[2]]^S[6]];
+					s3 = q0[q1[q1[i]^S[3]]^S[7]];
+					break;
 			}
 
-			Sbox3.push_back(s0 |(MDS5B[s0]<<8)|(MDSEF[s0]<<16)|(MDSEF[s0]<<24));
-			Sbox2.push_back(MDSEF[s1]|(MDSEF[s1]<<8)|(MDS5B[s1]<<16)|(s1<<24));
-			Sbox1.push_back(MDS5B[s2]|(MDSEF[s2]<<8)|(s2<<16)|(MDSEF[s2]<<24));
-			Sbox0.push_back(MDS5B[s3]|(s3<<8)|(MDSEF[s3]<<16)|(MDS5B[s3]<<24));					
+			Sbox3.push_back(s0 |((uint32_t)MDS5B[s0]<<8)|((uint32_t)MDSEF[s0]<<16)|((uint32_t)MDSEF[s0]<<24));
+			Sbox2.push_back(MDSEF[s1]|((uint32_t)MDSEF[s1]<<8)|((uint32_t)MDS5B[s1]<<16)|((uint32_t)s1<<24));
+			Sbox1.push_back(MDS5B[s2]|((uint32_t)MDSEF[s2]<<8)|((uint32_t)s2<<16)|((uint32_t)MDSEF[s2]<<24));
+			Sbox0.push_back(MDS5B[s3]|((uint32_t)s3<<8)|((uint32_t)MDSEF[s3]<<16)|((uint32_t)MDS5B[s3]<<24));
 		}
 
-		uint8_t M_odd[n/2];
-		uint8_t M_even[n/2];
+		std::vector<uint8_t> M_odd(n/2, 0);
+		std::vector<uint8_t> M_even(n/2, 0);
 		int i_even = 0;
 		int i_odd = 0;
 		for (int i = 0;i < n; i = i+4){
 			if ((i/4)%2 == 1){
-				M_odd[n/2-i_odd-4] = m[i];
-				M_odd[n/2-i_odd-3] = m[i+1];
-				M_odd[n/2-i_odd-2] = m[i+2];
-				M_odd[n/2-i_odd-1] = m[i+3];
+				M_odd[n/2-i_odd-4] = key[i];
+				M_odd[n/2-i_odd-3] = key[i+1];
+				M_odd[n/2-i_odd-2] = key[i+2];
+				M_odd[n/2-i_odd-1] = key[i+3];
 				i_odd += 4;
 			}else{
-				M_even[n/2-i_even-4] = m[i];
-				M_even[n/2-i_even-3] = m[i+1];
-				M_even[n/2-i_even-2] = m[i+2];
-				M_even[n/2-i_even-1] = m[i+3];
+				M_even[n/2-i_even-4] = key[i];
+				M_even[n/2-i_even-3] = key[i+1];
+				M_even[n/2-i_even-2] = key[i+2];
+				M_even[n/2-i_even-1] = key[i+3];
 				i_even += 4;
 			}
 		}
@@ -276,10 +274,10 @@
 	{
 		uint32_t left0, left1, right0, right1,newl0, newl1, temp, aph;
 		
-		left0 = (*lb0)| (*(lb0+1)<<8)|(*(lb0+2)<<16)| (*(lb0+3)<<24);
-		left1 = (*lb1)| (*(lb1+1)<<8)|(*(lb1+2)<<16)| (*(lb1+3)<<24);
-		right0 = (*rb0)| (*(rb0+1)<<8)|(*(rb0+2)<<16)| (*(rb0+3)<<24);
-		right1 = (*rb1)| (*(rb1+1)<<8)|(*(rb1+2)<<16)| (*(rb1+3)<<24);
+		left0 = (*lb0)| ((uint32_t)*(lb0+1)<<8)|((uint32_t)*(lb0+2)<<16)| ((uint32_t)*(lb0+3)<<24);
+		left1 = (*lb1)| ((uint32_t)*(lb1+1)<<8)|((uint32_t)*(lb1+2)<<16)| ((uint32_t)*(lb1+3)<<24);
+		right0 = (*rb0)| ((uint32_t)*(rb0+1)<<8)|((uint32_t)*(rb0+2)<<16)| ((uint32_t)*(rb0+3)<<24);
+		right1 = (*rb1)| ((uint32_t)*(rb1+1)<<8)|((uint32_t)*(rb1+2)<<16)| ((uint32_t)*(rb1+3)<<24);
 		
 
 		left0 ^= Subkeys[0]; left1 ^= Subkeys[1];
@@ -315,11 +313,12 @@
 	{
 		uint32_t left0, left1, right0, right1,newl0, newl1, temp, aph;
 		
-		left0 = (*lb0)| (*(lb0+1)<<8)|(*(lb0+2)<<16)| (*(lb0+3)<<24);
-		left1 = (*lb1)| (*(lb1+1)<<8)|(*(lb1+2)<<16)| (*(lb1+3)<<24);
-		right0 = (*rb0)| (*(rb0+1)<<8)|(*(rb0+2)<<16)| (*(rb0+3)<<24);
-		right1 = (*rb1)| (*(rb1+1)<<8)|(*(rb1+2)<<16)| (*(rb1+3)<<24);
+left0 = (*lb0)| ((uint32_t)*(lb0+1)<<8)|((uint32_t)*(lb0+2)<<16)| ((uint32_t)*(lb0+3)<<24);
+		left1 = (*lb1)| ((uint32_t)*(lb1+1)<<8)|((uint32_t)*(lb1+2)<<16)| ((uint32_t)*(lb1+3)<<24);
+		right0 = (*rb0)| ((uint32_t)*(rb0+1)<<8)|((uint32_t)*(rb0+2)<<16)| ((uint32_t)*(rb0+3)<<24);
+		right1 = (*rb1)| ((uint32_t)*(rb1+1)<<8)|((uint32_t)*(rb1+2)<<16)| ((uint32_t)*(rb1+3)<<24);
 		
+
 		left0 ^= Subkeys[4]; left1 ^= Subkeys[5];
 		right0 ^= Subkeys[6]; right1 ^= Subkeys[7];
 		
@@ -379,7 +378,7 @@
 	void Twofish::decryptCBC(uint8_t *plt, int len, uint8_t *iv)
 	{	
 		uint8_t temp[16];
-		for(uint8_t *i = plt; i+16<=plt + len; i = i + 8)
+		for(uint8_t *i = plt; i+16<=plt + len; i = i + 16)
 		{	
 			copy16(temp, i)
 			decrypt_block(i,i+4,i+8, i+12);
@@ -390,16 +389,15 @@
 
 	std::vector<uint8_t> Twofish::encrypt(std::vector<uint8_t> plt, std::vector<uint8_t> iv)
 	{
-		int l = plt.size();
-		int m = l%16 != 0 ? (l/16+1)*16-l: 0;
-		if (l%16 != 0) //PKCS padding
-			padPKCS(plt, m)
+		int m = 16 - (int)(plt.size() % 16);
+		padPKCS(plt, m)
 
-		l = iv.size();
-		if (l <= 16 )
-			padPKCS(iv, 8-l)
-		
-		encryptECB(&plt[0], plt.size()-m);
+		if (iv.size() >= 16)
+			iv.resize(16);
+		else
+			iv.resize(16, (uint8_t)0);
+
+		encryptCBC(&plt[0], (int)plt.size(), &iv[0]);
 		
 		return plt;
 	}
@@ -408,7 +406,7 @@
 
 	void Twofish::encrypt_File(char* path)
 	{
-		uint8_t ts[8] = {(uint8_t)0xff, (uint8_t)0xff, (uint8_t)0xff, (uint8_t)0xff,(uint8_t)0xff,(uint8_t)0xff,(uint8_t)0xff,(uint8_t)0xff};
+		uint8_t ts[16] = {(uint8_t)0xff, (uint8_t)0xff, (uint8_t)0xff, (uint8_t)0xff,(uint8_t)0xff,(uint8_t)0xff,(uint8_t)0xff,(uint8_t)0xff,(uint8_t)0xff, (uint8_t)0xff, (uint8_t)0xff, (uint8_t)0xff,(uint8_t)0xff,(uint8_t)0xff,(uint8_t)0xff,(uint8_t)0xff};
 		std::ifstream input_file(path, std::ios::binary);
 		std::vector<uint8_t> vec((std::istreambuf_iterator<char>(input_file)), std::istreambuf_iterator<char>());
 		input_file.close();
@@ -436,7 +434,7 @@
 
 	void Twofish::encrypt_FileS(std::string path)
 	{
-		uint8_t ts[8] = {(uint8_t)0xff, (uint8_t)0xff, (uint8_t)0xff, (uint8_t)0xff,(uint8_t)0xff,(uint8_t)0xff,(uint8_t)0xff,(uint8_t)0xff};
+		uint8_t ts[16] = {(uint8_t)0xff, (uint8_t)0xff, (uint8_t)0xff, (uint8_t)0xff,(uint8_t)0xff,(uint8_t)0xff,(uint8_t)0xff,(uint8_t)0xff,(uint8_t)0xff, (uint8_t)0xff, (uint8_t)0xff, (uint8_t)0xff,(uint8_t)0xff,(uint8_t)0xff,(uint8_t)0xff,(uint8_t)0xff};
 		std::ifstream input_file(path, std::ios::binary);
 		std::vector<uint8_t> vec((std::istreambuf_iterator<char>(input_file)), std::istreambuf_iterator<char>());
 		input_file.close();
@@ -464,7 +462,7 @@
 
 	void Twofish::decrypt_File(char* path)
 	{	
-		uint8_t ts[8] = {(uint8_t)0xff, (uint8_t)0xff, (uint8_t)0xff, (uint8_t)0xff,(uint8_t)0xff,(uint8_t)0xff,(uint8_t)0xff,(uint8_t)0xff};
+		uint8_t ts[16] = {(uint8_t)0xff, (uint8_t)0xff, (uint8_t)0xff, (uint8_t)0xff,(uint8_t)0xff,(uint8_t)0xff,(uint8_t)0xff,(uint8_t)0xff,(uint8_t)0xff, (uint8_t)0xff, (uint8_t)0xff, (uint8_t)0xff,(uint8_t)0xff,(uint8_t)0xff,(uint8_t)0xff,(uint8_t)0xff};
 
 		std::ifstream input_file(path, std::ios::binary);
 		std::vector<uint8_t> vec((std::istreambuf_iterator<char>(input_file)), std::istreambuf_iterator<char>());

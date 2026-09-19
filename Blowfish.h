@@ -2,6 +2,7 @@
 #define BLOWFISH_HEADER
 
 #include <stdint.h>
+#include <vector>
 
 class Blowfish{
 public:
@@ -19,9 +20,7 @@ public:
 
 	void decrypt_block(uint8_t *lb,uint8_t *rb);
 
-	void generateKeys(std::string key);
-
-	//void generateKeys(char* key);
+	void generateKeys(const std::vector<uint8_t>& key);
 	
 	void encryptECB(uint8_t *plt, int len);
 

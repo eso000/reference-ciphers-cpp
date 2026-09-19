@@ -118,16 +118,16 @@
 						arr1[7] = arr1[3];\
 						arr1[3] = temp[3];
 
-#define invShiftRowsSB(cols1, cols2) cols2[0] = (InvSBoxes[byte0(cols1[0])]<<24)|(InvSBoxes[byte1(cols1[3])]<<16)|(InvSBoxes[byte2(cols1[2])]<<8)|InvSBoxes[byte3(cols1[1])];\
-								   	 cols2[1] = (InvSBoxes[byte0(cols1[1])]<<24)|(InvSBoxes[byte1(cols1[0])]<<16)|(InvSBoxes[byte2(cols1[3])]<<8)|InvSBoxes[byte3(cols1[2])];\
-								   	 cols2[2] = (InvSBoxes[byte0(cols1[2])]<<24)|(InvSBoxes[byte1(cols1[1])]<<16)|(InvSBoxes[byte2(cols1[0])]<<8)|InvSBoxes[byte3(cols1[3])];\
-								   	 cols2[3] = (InvSBoxes[byte0(cols1[3])]<<24)|(InvSBoxes[byte1(cols1[2])]<<16)|(InvSBoxes[byte2(cols1[1])]<<8)|InvSBoxes[byte3(cols1[0])];
+#define invShiftRowsSB(cols1, cols2) cols2[0] = ((uint32_t)InvSBoxes[byte0(cols1[0])]<<24)|(InvSBoxes[byte1(cols1[3])]<<16)|(InvSBoxes[byte2(cols1[2])]<<8)|InvSBoxes[byte3(cols1[1])];\
+								   	 cols2[1] = ((uint32_t)InvSBoxes[byte0(cols1[1])]<<24)|(InvSBoxes[byte1(cols1[0])]<<16)|(InvSBoxes[byte2(cols1[3])]<<8)|InvSBoxes[byte3(cols1[2])];\
+								   	 cols2[2] = ((uint32_t)InvSBoxes[byte0(cols1[2])]<<24)|(InvSBoxes[byte1(cols1[1])]<<16)|(InvSBoxes[byte2(cols1[0])]<<8)|InvSBoxes[byte3(cols1[3])];\
+								   	 cols2[3] = ((uint32_t)InvSBoxes[byte0(cols1[3])]<<24)|(InvSBoxes[byte1(cols1[2])]<<16)|(InvSBoxes[byte2(cols1[1])]<<8)|InvSBoxes[byte3(cols1[0])];
 
 
-#define firstround(cols, p1, k) cols[0] = ((*p1<<24)|(*(p1+ 1)<<16)|(*(p1+ 2)<<8)|*(p1+ 3)) ^ Subkeys[k + 0];\
-			cols[1] = ((*(p1+ 4)<<24)|(*(p1+ 5)<<16)|(*(p1+ 6)<<8)|*(p1+ 7)) ^ Subkeys[k + 1];\
-			cols[2] = ((*(p1+ 8)<<24)|(*(p1+ 9)<<16)|(*(p1+10)<<8)|*(p1+ 11)) ^ Subkeys[k + 2];\
-			cols[3] = ((*(p1+12)<<24)|(*(p1+13)<<16)|(*(p1+14)<<8)|*(p1+ 15)) ^ Subkeys[k + 3];\
+#define firstround(cols, p1, k) cols[0] = (((uint32_t)*p1<<24)|((uint32_t)*(p1+ 1)<<16)|((uint32_t)*(p1+ 2)<<8)|(uint32_t)*(p1+ 3)) ^ Subkeys[k + 0];\
+			cols[1] = (((uint32_t)*(p1+ 4)<<24)|((uint32_t)*(p1+ 5)<<16)|((uint32_t)*(p1+ 6)<<8)|(uint32_t)*(p1+ 7)) ^ Subkeys[k + 1];\
+			cols[2] = (((uint32_t)*(p1+ 8)<<24)|((uint32_t)*(p1+ 9)<<16)|((uint32_t)*(p1+10)<<8)|(uint32_t)*(p1+ 11)) ^ Subkeys[k + 2];\
+			cols[3] = (((uint32_t)*(p1+12)<<24)|((uint32_t)*(p1+13)<<16)|((uint32_t)*(p1+14)<<8)|(uint32_t)*(p1+ 15)) ^ Subkeys[k + 3];\
 		
 
 #define lastround(cols, p1, i ) *p1 	= SB(byte0(cols[0])) ^ Subkeys[i]>>24;\
@@ -272,7 +272,7 @@
 		}
 		Subkeys.clear();
 		for (int i=0;i<4*R;++i)
-			Subkeys.push_back((W[i][0]<<24)|(W[i][1]<<16)|(W[i][2]<<8)|W[i][3] );
+			Subkeys.push_back(((uint32_t)W[i][0]<<24)|((uint32_t)W[i][1]<<16)|((uint32_t)W[i][2]<<8)|W[i][3] );
 		
 		
 		

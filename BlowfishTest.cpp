@@ -4,6 +4,7 @@
 #include <cstring>
 #include <fstream>
 #include <iterator>
+#include <stdexcept>
 
 #include "Blowfish.h"
 
@@ -110,10 +111,10 @@ struct Kat
 	const char *cipher;
 };
 
-std::vector<uint8_t> hexToVec(const char *hex)
+std::vector<uint8_t> hexDecode(const char *hex)
 {
 	std::vector<uint8_t> v;
-	for (int i = 0; i < 8; ++i)
+	for (int i = 0; hex[2 * i] && hex[2 * i + 1]; ++i)
 	{
 		unsigned x;
 		sscanf(hex + 2 * i, "%2x", &x);
@@ -122,13 +123,69 @@ std::vector<uint8_t> hexToVec(const char *hex)
 	return v;
 }
 
+std::vector<uint8_t> hexToVec(const char *hex)
+{
+	return hexDecode(hex);
+}
+
+struct SetKeyKat
+{
+	const char *key;
+	const char *cipher;
+};
+
+void runSetKey(std::vector<SetKeyKat> kats, const char *label)
+{
+	char name[96];
+	for (int i = 0; i < kats.size(); ++i)
+	{
+		Blowfish c;
+		c.generateKeys(hexDecode(kats[i].key));
+		std::vector<uint8_t> v = hexDecode("FEDCBA9876543210");
+		std::vector<uint8_t> expected = hexDecode(kats[i].cipher);
+		c.encryptECB(&v[0], 8);
+		snprintf(name, sizeof(name), "%s: %d-byte key", label, (int)(strlen(kats[i].key) / 2));
+		CHECK(compareVector(v, expected), name);
+	}
+}
+
+std::vector<SetKeyKat> setKeyKats()
+{
+	std::vector<SetKeyKat> k;
+	k.push_back(SetKeyKat{"F0", "F9AD597C49DB005E"});
+	k.push_back(SetKeyKat{"F0E1", "E91D21C1D961A6D6"});
+	k.push_back(SetKeyKat{"F0E1D2", "E9C2B70A1BC65CF3"});
+	k.push_back(SetKeyKat{"F0E1D2C3", "BE1E639408640F05"});
+	k.push_back(SetKeyKat{"F0E1D2C3B4", "B39E44481BDB1E6E"});
+	k.push_back(SetKeyKat{"F0E1D2C3B4A5", "9457AA83B1928C0D"});
+	k.push_back(SetKeyKat{"F0E1D2C3B4A596", "8BB77032F960629D"});
+	k.push_back(SetKeyKat{"F0E1D2C3B4A59687", "E87A244E2CC85E82"});
+	k.push_back(SetKeyKat{"F0E1D2C3B4A5968778", "15750E7A4F4EC577"});
+	k.push_back(SetKeyKat{"F0E1D2C3B4A596877869", "122BA70B3AB64AE0"});
+	k.push_back(SetKeyKat{"F0E1D2C3B4A5968778695A", "3A833C9AFFC537F6"});
+	k.push_back(SetKeyKat{"F0E1D2C3B4A5968778695A4B", "9409DA87A90F6BF2"});
+	k.push_back(SetKeyKat{"F0E1D2C3B4A5968778695A4B3C", "884F80625060B8B4"});
+	k.push_back(SetKeyKat{"F0E1D2C3B4A5968778695A4B3C2D", "1F85031C19E11968"});
+	k.push_back(SetKeyKat{"F0E1D2C3B4A5968778695A4B3C2D1E", "79D9373A714CA34F"});
+	k.push_back(SetKeyKat{"F0E1D2C3B4A5968778695A4B3C2D1E0F", "93142887EE3BE15C"});
+	k.push_back(SetKeyKat{"F0E1D2C3B4A5968778695A4B3C2D1E0F00", "03429E838CE2D14B"});
+	k.push_back(SetKeyKat{"F0E1D2C3B4A5968778695A4B3C2D1E0F0011", "A4299E27469FF67B"});
+	k.push_back(SetKeyKat{"F0E1D2C3B4A5968778695A4B3C2D1E0F001122", "AFD5AED1C1BC96A8"});
+	k.push_back(SetKeyKat{"F0E1D2C3B4A5968778695A4B3C2D1E0F00112233", "10851C0E3858DA9F"});
+	k.push_back(SetKeyKat{"F0E1D2C3B4A5968778695A4B3C2D1E0F0011223344", "E6F51ED79B9DB21F"});
+	k.push_back(SetKeyKat{"F0E1D2C3B4A5968778695A4B3C2D1E0F001122334455", "64A6E14AFD36B46F"});
+	k.push_back(SetKeyKat{"F0E1D2C3B4A5968778695A4B3C2D1E0F00112233445566", "80C7D7D45A5479AD"});
+	k.push_back(SetKeyKat{"F0E1D2C3B4A5968778695A4B3C2D1E0F0011223344556677", "05044B62FA52D080"});
+	return k;
+}
+
 void runKat(std::vector<Kat> kats, const char *label)
 {
 	char name[96];
 	for (int i = 0; i < kats.size(); ++i)
 	{
 		Blowfish c;
-		c.generateKeys(kats[i].key);
+		c.generateKeys(hexDecode(kats[i].key));
 		std::vector<uint8_t> v = hexToVec(kats[i].plain);
 		std::vector<uint8_t> expected = hexToVec(kats[i].cipher);
 		c.encryptECB(&v[0], 8);
@@ -181,9 +238,11 @@ int main()
 {
 	printf("== Blowfish known-answer tests (official ECB vectors) ==\n");
 	runKat(officialKats(), "official ecb");
+	printf("== official set_key vectors (key lengths 1..24 bytes) ==\n");
+	runSetKey(setKeyKats(), "set_key");
 	{
 		Blowfish c;
-		c.generateKeys("AABB09182736CCDD");
+		c.generateKeys(hexDecode("AABB09182736CCDD"));
 		std::vector<uint8_t> v({0x12, 0x34, 0x56, 0xAB, 0xCD, 0x13, 0x25, 0x36});
 		c.encryptECB(&v[0], 8);
 		CHECK(compareVector(v, std::vector<uint8_t>({0xc8, 0xfd, 0xca, 0xea, 0x64, 0xfa, 0x2c, 0x82})), "repo vector: key=AABB09182736CCDD -> c8fdcaea64fa2c82");
@@ -192,8 +251,8 @@ int main()
 	printf("== ECB round trip ==\n");
 	{
 		Blowfish c, d;
-		c.generateKeys("0123456789abcdef");
-		d.generateKeys("0123456789abcdef");
+		c.generateKeys(hexDecode("0123456789abcdef"));
+		d.generateKeys(hexDecode("0123456789abcdef"));
 		std::vector<uint8_t> v, w;
 		for (int i = 0; i < 24; ++i)
 			v.push_back((uint8_t)(0xA5 + i));
@@ -207,8 +266,8 @@ int main()
 	printf("== CBC round trip ==\n");
 	{
 		Blowfish c, d;
-		c.generateKeys("0123456789abcdef");
-		d.generateKeys("0123456789abcdef");
+		c.generateKeys(hexDecode("0123456789abcdef"));
+		d.generateKeys(hexDecode("0123456789abcdef"));
 		std::vector<uint8_t> v({0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f});
 		std::vector<uint8_t> w = v;
 		std::vector<uint8_t> iv({0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88});
@@ -222,8 +281,8 @@ int main()
 	printf("== PCBC round trip ==\n");
 	{
 		Blowfish c, d;
-		c.generateKeys("0123456789abcdef");
-		d.generateKeys("0123456789abcdef");
+		c.generateKeys(hexDecode("0123456789abcdef"));
+		d.generateKeys(hexDecode("0123456789abcdef"));
 		std::vector<uint8_t> v({0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f});
 		std::vector<uint8_t> w = v;
 		std::vector<uint8_t> iv({0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88});
@@ -236,8 +295,8 @@ int main()
 	printf("== CFB round trip ==\n");
 	{
 		Blowfish c, d;
-		c.generateKeys("0123456789abcdef");
-		d.generateKeys("0123456789abcdef");
+		c.generateKeys(hexDecode("0123456789abcdef"));
+		d.generateKeys(hexDecode("0123456789abcdef"));
 		std::vector<uint8_t> v({0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f});
 		std::vector<uint8_t> w = v;
 		std::vector<uint8_t> iv({0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88});
@@ -251,8 +310,8 @@ int main()
 	printf("== encrypt() PKCS#7 padding ==\n");
 	{
 		Blowfish c, d;
-		c.generateKeys("00112233445566778899aabbccddeeff");
-		d.generateKeys("00112233445566778899aabbccddeeff");
+		c.generateKeys(hexDecode("00112233445566778899aabbccddeeff"));
+		d.generateKeys(hexDecode("00112233445566778899aabbccddeeff"));
 		std::vector<uint8_t> pt({0x12, 0x34, 0x56, 0xAB, 0xCD, 0x13, 0x25});
 		std::vector<uint8_t> iv(8, 0);
 		std::vector<uint8_t> ct = c.encrypt(pt, iv);
@@ -266,7 +325,7 @@ int main()
 	}
 	{
 		Blowfish c;
-		c.generateKeys("00112233445566778899aabbccddeeff");
+		c.generateKeys(hexDecode("00112233445566778899aabbccddeeff"));
 		std::vector<uint8_t> pt(8, 0x7A);
 		std::vector<uint8_t> iv(8, 0);
 		std::vector<uint8_t> ct = c.encrypt(pt, iv);
@@ -277,7 +336,7 @@ int main()
 	{
 		char path16[] = "/tmp/bf_test16.bin";
 		Blowfish c;
-		c.generateKeys("0123456789abcdef");
+		c.generateKeys(hexDecode("0123456789abcdef"));
 		std::vector<uint8_t> orig({0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f});
 		writeFile(path16, orig);
 		c.encrypt_File(path16);
@@ -288,7 +347,7 @@ int main()
 	{
 		char path3[] = "/tmp/bf_test3.bin";
 		Blowfish c;
-		c.generateKeys("0123456789abcdef");
+		c.generateKeys(hexDecode("0123456789abcdef"));
 		std::vector<uint8_t> orig({0xAA, 0xBB, 0xCC});
 		writeFile(path3, orig);
 		c.encrypt_File(path3);
@@ -296,6 +355,47 @@ int main()
 		CHECK(!compareVector(readFile(path3), orig), "short file changed by encrypt_File");
 		c.decrypt_File(path3);
 		CHECK(compareVector(readFile(path3), orig), "short file round trip after padding");
+	}
+
+	printf("== standard key schedule (non-aligned key lengths) ==\n");
+	{
+		Blowfish c, d;
+		std::vector<uint8_t> kb = hexDecode("AABBCC");
+		c.generateKeys(kb);
+		d.generateKeys(kb);
+		std::vector<uint8_t> v({0x12, 0x34, 0x56, 0xAB, 0xCD, 0x13, 0x25, 0x36});
+		std::vector<uint8_t> w = v;
+		c.encryptECB(&v[0], 8);
+		CHECK(!compareVector(v, w), "3-byte key: ciphertext differs from plaintext");
+		d.decryptECB(&v[0], 8);
+		CHECK(compareVector(v, w), "3-byte key: encrypt+decrypt restores plaintext");
+	}
+	{
+		Blowfish c, d;
+		std::vector<uint8_t> kb;
+		for (int i = 0; i < 56; ++i)
+			kb.push_back((uint8_t)(i * 37));
+		c.generateKeys(kb);
+		d.generateKeys(kb);
+		std::vector<uint8_t> v({0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77});
+		std::vector<uint8_t> w = v;
+		c.encryptECB(&v[0], 8);
+		CHECK(!compareVector(v, w), "56-byte (max) key: ciphertext differs from plaintext");
+		d.decryptECB(&v[0], 8);
+		CHECK(compareVector(v, w), "56-byte (max) key: encrypt+decrypt restores plaintext");
+	}
+
+	printf("== key length validation ==\n");
+	{
+		Blowfish c;
+		bool threw = false;
+		try { c.generateKeys(std::vector<uint8_t>()); }
+		catch (std::invalid_argument &) { threw = true; }
+		CHECK(threw, "empty key rejected");
+		threw = false;
+		try { c.generateKeys(std::vector<uint8_t>(57, 0xAB)); }
+		catch (std::invalid_argument &) { threw = true; }
+		CHECK(threw, "57-byte key rejected");
 	}
 
 	printf("\n%d test(s) failed\n", g_fails);

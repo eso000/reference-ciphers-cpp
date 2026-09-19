@@ -2,9 +2,12 @@
 #define TWIFISH_HEADER
 
 #include <stdint.h>
+#include <vector>
+#include <string>
 
 class Twofish{
 public:
+	Twofish() : mode(0), padding(0) {}
 	std::vector<std::vector<uint8_t>> RS = {{1,164,85,135,90,88,219,158},
 		 		  							{164,86,130,243,30,198,104,229},
 		 		  							{2,161,252,193,71,174,61,25},
@@ -36,9 +39,9 @@ public:
 
 	uint8_t multgf(uint16_t a,uint16_t b);
 	
-	uint8_t RSAmul(int i, uint8_t *p);
+	uint8_t RSAmul(int i, const uint8_t *p);
 
-	void generateKeys(std::string mkey);
+	void generateKeys(const std::vector<uint8_t>& key);
 
 	void encrypt_block(uint8_t *lb0,uint8_t *lb1,uint8_t *rb0,uint8_t *rb1);
 
