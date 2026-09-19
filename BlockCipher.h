@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <vector>
+#include <string>
 
 #include "Padding.h"
 
@@ -11,6 +12,10 @@ enum class BlockMode { ECB, CBC, PCBC, CFB, OFB, CTR };
 class BlockCipher {
 public:
 	virtual ~BlockCipher() {}
+
+	int mode = 0;
+
+	int padding = 1;
 
 	virtual int blockSize() const = 0;
 
@@ -49,6 +54,8 @@ public:
 			Padding padding, std::vector<uint8_t> iv = std::vector<uint8_t>()) const;
 
 	void encrypt_File(char* path) const;
+
+	void encrypt_FileS(std::string path) const;
 
 	void decrypt_File(char* path) const;
 

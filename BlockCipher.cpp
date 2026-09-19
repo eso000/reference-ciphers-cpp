@@ -200,26 +200,79 @@ std::vector<uint8_t> BlockCipher::decryptMode(std::vector<uint8_t> plt, BlockMod
 	return plt;
 }
 
-void BlockCipher::encrypt_File(char* path) const
+static Padding filePadding(int p)
+{
+	switch (p)
+	{
+		case 0: return Padding::Zeros;
+		case 2: return Padding::ANSIX923;
+		case 3: return Padding::ISO78164;
+		default: return Padding::PKCS7;
+	}
+}
+
+static void encryptFileImpl(const BlockCipher &c, const std::string &path)
 {
 	std::ifstream input_file(path, std::ios::binary);
 	std::vector<uint8_t> vec((std::istreambuf_iterator<char>(input_file)), std::istreambuf_iterator<char>());
 	input_file.close();
-	vec = encryptMode(vec, BlockMode::ECB, Padding::PKCS7);
+	int bs = c.blockSize();
+	int l = (int) vec.size();
+	Padding p = filePadding(c.padding);
+	int m = (p == Padding::Zeros && l % bs == 0) ? 0 : missingFor(l, bs);
+	if (m)
+		pad(vec, m, p);
+	if (!vec.empty())
+	{
+		if (c.mode == 1)
+		{
+			uint8_t iv[16];
+			memset(iv, 0xff, bs);
+			c.encryptCBC(&vec[0], (int) vec.size(), iv);
+		}
+		else
+			c.encryptECB(&vec[0], (int) vec.size());
+	}
 	std::ofstream file(path);
 	if (!vec.empty())
 		file.write(reinterpret_cast<char*>(&vec[0]), vec.size());
 	file.close();
 }
 
-void BlockCipher::decrypt_File(char* path) const
+static void decryptFileImpl(const BlockCipher &c, const std::string &path)
 {
 	std::ifstream input_file(path, std::ios::binary);
 	std::vector<uint8_t> vec((std::istreambuf_iterator<char>(input_file)), std::istreambuf_iterator<char>());
 	input_file.close();
-	vec = decryptMode(vec, BlockMode::ECB, Padding::PKCS7);
+	if (!vec.empty())
+	{
+		if (c.mode == 1)
+		{
+			uint8_t iv[16];
+			memset(iv, 0xff, c.blockSize());
+			c.decryptCBC(&vec[0], (int) vec.size(), iv);
+		}
+		else
+			c.decryptECB(&vec[0], (int) vec.size());
+	}
+	unpad(vec, filePadding(c.padding), c.blockSize());
 	std::ofstream file(path);
 	if (!vec.empty())
 		file.write(reinterpret_cast<char*>(&vec[0]), vec.size());
 	file.close();
+}
+
+void BlockCipher::encrypt_File(char* path) const
+{
+	encryptFileImpl(*this, path);
+}
+
+void BlockCipher::encrypt_FileS(std::string path) const
+{
+	encryptFileImpl(*this, path);
+}
+
+void BlockCipher::decrypt_File(char* path) const
+{
+	decryptFileImpl(*this, path);
 }

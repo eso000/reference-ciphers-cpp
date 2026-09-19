@@ -9,7 +9,7 @@
 
 class Twofish : public BlockCipher{
 public:
-	Twofish() : mode(0), padding(0) {}
+	Twofish() { padding = 0; }
 	std::vector<std::vector<uint8_t>> RS = {{1,164,85,135,90,88,219,158},
 		 		  							{164,86,130,243,30,198,104,229},
 		 		  							{2,161,252,193,71,174,61,25},
@@ -33,9 +33,6 @@ public:
 
 	std::vector<uint32_t> Subkeys;
 
-	int mode: 2;
-	int padding: 4;
-
 	
 	uint32_t multgf(uint32_t a,uint32_t b,uint32_t pol) const;
 
@@ -56,12 +53,6 @@ public:
 	void decryptBlock(uint8_t *block) const;
 
 	std::vector<uint8_t> encrypt(std::vector<uint8_t> plt, std::vector<uint8_t> iv) const;
-
-	void encrypt_File(char* path) const;
-
-	void encrypt_FileS(std::string path) const;
-
-	void decrypt_File(char* path) const;
 
 };
 
