@@ -5,7 +5,9 @@
 #include <vector>
 #include <string>
 
-class DES{
+#include "BlockCipher.h"
+
+class DES : public BlockCipher{
 public:
 
 	std::vector<uint8_t> initialperm = { 58, 50, 42, 34, 26, 18, 10, 2,
@@ -77,21 +79,15 @@ public:
 
 	void decrypt_block(uint8_t *lb,uint8_t *rb) const;
 
-	void encryptECB(uint8_t *plt, int len) const;
+	int blockSize() const;
 
-	void decryptECB(uint8_t *plt, int len) const;
+	void encryptBlock(uint8_t *block) const;
 
-	void encryptCBC(uint8_t *plt, int len, uint8_t *iv) const;
-
-	void decryptCBC(uint8_t *plt, int len, uint8_t *iv) const;
+	void decryptBlock(uint8_t *block) const;
 
 	std::vector<uint8_t> encrypt(std::vector<uint8_t> plt) const;
 
 	std::vector<uint8_t> decrypt(std::vector<uint8_t> plt) const;
-
-	void encrypt_File(char* path) const;
-
-	void decrypt_File(char* path) const;
 
 };
 

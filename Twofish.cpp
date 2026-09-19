@@ -7,58 +7,7 @@
 
 
 
-#define padPKCS(pvec, missing) for (int i = 0; i < missing; ++i)\
-								pvec.push_back((uint8_t) missing);
 
-#define padZeros(pvec, missing) for (int i = 0; i < missing; ++i)\
-								pvec.push_back((uint8_t) 0);
-
-#define padANSIX923(pvec, missing) for (int i = 0; i < missing-1; ++i)\
-									pvec.push_back((uint8_t) 0);\
-								   pvec.push_back((uint8_t) missing);
-
-#define padISO78164(pvec, missing) pvec.push_back((uint8_t) 0x80);\
-								   for (int i = 0; i < missing-1; ++i)\
-								   		pvec.push_back((uint8_t) 0);\
-
-
-
-
-#define copy16(arr1, arr2) arr1[0] = *arr2;\
-	arr1[1] = *(arr2+1);\
-	arr1[2] = *(arr2+2);\
-	arr1[3] = *(arr2+3);\
-	arr1[4] = *(arr2+4);\
-	arr1[5] = *(arr2+5);\
-	arr1[6] = *(arr2+6);\
-	arr1[7] = *(arr2+7);\
-	arr1[8] = *(arr2+8);\
-	arr1[9] = *(arr2+9);\
-	arr1[10] = *(arr2+10);\
-	arr1[11] = *(arr2+11);\
-	arr1[12] = *(arr2+12);\
-	arr1[13] = *(arr2+13);\
-	arr1[14] = *(arr2+14);\
-	arr1[15] = *(arr2+15);
-
-
-
-#define xor16(arr1, arr2) arr1[0] ^= *arr2;\
-	arr1[1] ^= *(arr2+1);\
-	arr1[2] ^= *(arr2+2);\
-	arr1[3] ^= *(arr2+3);\
-	arr1[4] ^= *(arr2+4);\
-	arr1[5] ^= *(arr2+5);\
-	arr1[6] ^= *(arr2+6);\
-	arr1[7] ^= *(arr2+7);\
-	arr1[8] ^= *(arr2+8);\
-	arr1[9] ^= *(arr2+9);\
-	arr1[10] ^= *(arr2+10);\
-	arr1[11] ^= *(arr2+11);\
-	arr1[12] ^= *(arr2+12);\
-	arr1[13] ^= *(arr2+13);\
-	arr1[14] ^= *(arr2+14);\
-	arr1[15] ^= *(arr2+15);
 
 
 #define byte0(x) (uint8_t)(x>>24)
@@ -351,58 +300,36 @@ left0 = (*lb0)| ((uint32_t)*(lb0+1)<<8)|((uint32_t)*(lb0+2)<<16)| ((uint32_t)*(l
 	
 
 	
-	void Twofish::encryptECB(uint8_t *plt, int len) const
+	int Twofish::blockSize() const
 	{
-		for(uint8_t *i = plt; i+16<=plt + len; i = i + 16)
-			encrypt_block(i,i+4,i+8, i+12);
+		return 16;
 	}
-	void Twofish::decryptECB(uint8_t *plt, int len) const
+
+	void Twofish::encryptBlock(uint8_t *block) const
 	{
-		for(uint8_t *i = plt; i+16<=plt + len; i = i + 16)
-			decrypt_block(i,i+4,i+8, i+12);
+		encrypt_block(block, block + 4, block + 8, block + 12);
 	}
 
-
-
-
-	void Twofish::encryptCBC(uint8_t *plt, int len, uint8_t *iv) const
-	{	
-		for(uint8_t *i = plt; i+16<=plt + len; i = i + 16)
-		{	
-			xor16(i,iv)
-			encrypt_block(i,i+4,i+8, i+12);
-			iv = i;
-		}
-	}
-
-	void Twofish::decryptCBC(uint8_t *plt, int len, uint8_t *iv) const
-	{	
-		uint8_t temp[16];
-		for(uint8_t *i = plt; i+16<=plt + len; i = i + 16)
-		{	
-			copy16(temp, i)
-			decrypt_block(i,i+4,i+8, i+12);
-			xor16(i,iv)
-			copy16(iv, temp)
-		}
+	void Twofish::decryptBlock(uint8_t *block) const
+	{
+		decrypt_block(block, block + 4, block + 8, block + 12);
 	}
 
 	std::vector<uint8_t> Twofish::encrypt(std::vector<uint8_t> plt, std::vector<uint8_t> iv) const
 	{
-		int m = 16 - (int)(plt.size() % 16);
-		padPKCS(plt, m)
-
-		if (iv.size() >= 16)
-			iv.resize(16);
-		else
-			iv.resize(16, (uint8_t)0);
-
-		encryptCBC(&plt[0], (int)plt.size(), &iv[0]);
-		
-		return plt;
+		return encryptMode(plt, BlockMode::CBC, Padding::PKCS7, iv);
 	}
 
-
+	static Padding twofishPadding(int p)
+	{
+		switch (p)
+		{
+			case 0: return Padding::Zeros;
+			case 2: return Padding::ANSIX923;
+			case 3: return Padding::ISO78164;
+			default: return Padding::PKCS7;
+		}
+	}
 
 	void Twofish::encrypt_File(char* path) const
 	{
@@ -413,22 +340,18 @@ left0 = (*lb0)| ((uint32_t)*(lb0+1)<<8)|((uint32_t)*(lb0+2)<<16)| ((uint32_t)*(l
 		int l = vec.size();
 		int m = l%16 != 0 ? (l/16+1)*16-l: 0;
 		if(m)
+			pad(vec, m, twofishPadding(padding));
+		if(!vec.empty())
 		{
-			switch(padding)
+			switch(mode)
 			{
-				case 0: padZeros(vec, m); break;
-				case 1: padPKCS(vec, m); break;
-				case 2: padANSIX923(vec, m); break;
-				case 3: padISO78164(vec, m); break;
+				case 0: encryptECB(&vec[0], vec.size()); break;
+				case 1: encryptCBC(&vec[0], vec.size(), &ts[0]); break;
 			}
-		}		
-		switch(mode)
-		{
-			case 0: encryptECB(&vec[0], vec.size()); break;
-			case 1: encryptCBC(&vec[0], vec.size(), &ts[0]); break;
 		}
 		std::ofstream file(path);
-		file.write(reinterpret_cast<char*>(&vec[0]), vec.size() * sizeof(vec[0]));
+		if(!vec.empty())
+			file.write(reinterpret_cast<char*>(&vec[0]), vec.size() * sizeof(vec[0]));
     	file.close();
 	}
 
@@ -441,22 +364,18 @@ left0 = (*lb0)| ((uint32_t)*(lb0+1)<<8)|((uint32_t)*(lb0+2)<<16)| ((uint32_t)*(l
 		int l = vec.size();
 		int m = l%16 != 0 ? (l/16+1)*16-l: 0;
 		if(m)
+			pad(vec, m, twofishPadding(padding));
+		if(!vec.empty())
 		{
-			switch(padding)
+			switch(mode)
 			{
-				case 0: padZeros(vec, m); break;
-				case 1: padPKCS(vec, m); break;
-				case 2: padANSIX923(vec, m); break;
-				case 3: padISO78164(vec, m); break;
+				case 0: encryptECB(&vec[0], vec.size()); break;
+				case 1: encryptCBC(&vec[0], vec.size(), &ts[0]); break;
 			}
-		}		
-		switch(mode)
-		{
-			case 0: encryptECB(&vec[0], vec.size()); break;
-			case 1: encryptCBC(&vec[0], vec.size(), &ts[0]); break;
 		}
 		std::ofstream file(path);
-		file.write(reinterpret_cast<char*>(&vec[0]), vec.size() * sizeof(vec[0]));
+		if(!vec.empty())
+			file.write(reinterpret_cast<char*>(&vec[0]), vec.size() * sizeof(vec[0]));
     	file.close();
 	}
 
@@ -467,16 +386,21 @@ left0 = (*lb0)| ((uint32_t)*(lb0+1)<<8)|((uint32_t)*(lb0+2)<<16)| ((uint32_t)*(l
 		std::ifstream input_file(path, std::ios::binary);
 		std::vector<uint8_t> vec((std::istreambuf_iterator<char>(input_file)), std::istreambuf_iterator<char>());
 		input_file.close();
-		switch(mode)
+		if(!vec.empty())
 		{
-			case 0: decryptECB(&vec[0], vec.size()); 
-					break;
-			case 1: decryptCBC(&vec[0], vec.size(), &ts[0]);
-					break;
+			switch(mode)
+			{
+				case 0: decryptECB(&vec[0], vec.size()); 
+						break;
+				case 1: decryptCBC(&vec[0], vec.size(), &ts[0]);
+						break;
+			}
 		}
 		
 		std::ofstream file(path);
-		file.write(reinterpret_cast<char*>(&vec[0]), vec.size() * sizeof(vec[0]));
+		if(!vec.empty())
+			file.write(reinterpret_cast<char*>(&vec[0]), vec.size() * sizeof(vec[0]));
     	file.close();
 	}
+
 

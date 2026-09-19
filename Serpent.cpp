@@ -4,13 +4,6 @@
 
 #include "Serpent.h"
 
-#define padPKCS(pvec, missing) for (int i = 0; i < missing; ++i)\
-								pvec.push_back((uint8_t) missing);\
-
-#define copy16(arr1, arr2) for (int _i = 0; _i < 16; ++_i) arr1[_i] = arr2[_i];
-
-#define xor16(arr1, arr2) for (int _i = 0; _i < 16; ++_i) arr1[_i] ^= arr2[_i];
-
 #define rotr(xr,times) (((xr << times)|(xr >> 32-times)))
 
 #define rotl(xr,times) (((xr >> times)|(xr << 32-times)))
@@ -494,103 +487,27 @@
       *(x3+2) = ltb((w3>>8 ) & 0xff); *(x3+3) = ltb(w3 & 0xff);
 	}
 
-	void Serpent::encryptECB(uint8_t *plt, int len) const
+	int Serpent::blockSize() const
 	{
-		for(uint8_t *i = plt; i+16<=plt + len; i = i + 16)
-			encrypt_block(i, i+4, i+8, i+12);
+		return 16;
 	}
 
-	void Serpent::decryptECB(uint8_t *plt, int len) const
+	void Serpent::encryptBlock(uint8_t *block) const
 	{
-		for(uint8_t *i = plt; i+16<=plt + len; i = i + 16)
-			decrypt_block(i, i+4, i+8, i+12);
+		encrypt_block(block, block + 4, block + 8, block + 12);
 	}
 
-	void Serpent::encryptCBC(uint8_t *plt, int len, uint8_t *iv) const
+	void Serpent::decryptBlock(uint8_t *block) const
 	{
-		for(uint8_t *i = plt; i+16<=plt + len; i = i + 16)
-		{
-			xor16(i,iv)
-			encrypt_block(i, i+4, i+8, i+12);
-			iv = i;
-		}
-	}
-
-	void Serpent::decryptCBC(uint8_t *plt, int len, uint8_t *iv) const
-	{
-		uint8_t t[16];
-		for(uint8_t *i = plt; i+16<=plt + len; i = i + 16)
-		{
-			copy16(t,i)
-			decrypt_block(i, i+4, i+8, i+12);
-			xor16(i,iv)
-			copy16(iv,t)
-		}
+		decrypt_block(block, block + 4, block + 8, block + 12);
 	}
 
 	std::vector<uint8_t> Serpent::encrypt(std::vector<uint8_t> plt) const
 	{
-		int l = plt.size();
-		int m = 16 - (l%16);
-		padPKCS(plt, m)
-
-		encryptECB(&plt[0], plt.size());
-
-		return plt;
+		return encryptMode(plt, BlockMode::ECB, Padding::PKCS7);
 	}
 
 	std::vector<uint8_t> Serpent::decrypt(std::vector<uint8_t> plt) const
 	{
-		if (plt.empty())
-			return plt;
-		decryptECB(&plt[0], plt.size());
-		int l = plt.size();
-		int padok = 1;
-		uint8_t n = plt[l-1];
-		if (n < 1 || n > 16)
-			padok = 0;
-		for (int i = 0; i < n && padok; ++i)
-			if (plt[l-1-i] != n)
-				padok = 0;
-		if (padok)
-			plt.resize(l - n);
-		return plt;
-	}
-
-	void Serpent::encrypt_File(char* path) const
-	{
-		std::ifstream input_file(path, std::ios::binary);
-		std::vector<uint8_t> vec((std::istreambuf_iterator<char>(input_file)), std::istreambuf_iterator<char>());
-		input_file.close();
-		int m = 16 - (vec.size()%16);
-		padPKCS(vec, m)
-		encryptECB(&vec[0], vec.size());
-		std::ofstream file(path);
-		file.write(reinterpret_cast<char*>(&vec[0]), vec.size());
-    	file.close();
-	}
-
-	void Serpent::decrypt_File(char* path) const
-	{
-		std::ifstream input_file(path, std::ios::binary);
-		std::vector<uint8_t> vec((std::istreambuf_iterator<char>(input_file)), std::istreambuf_iterator<char>());
-		input_file.close();
-		decryptECB(&vec[0], vec.size());
-		int l = vec.size();
-		if (l > 0)
-		{
-			int padok = 1;
-			uint8_t n = vec[l-1];
-			if (n < 1 || n > 16)
-				padok = 0;
-			for (int i = 0; i < n && padok; ++i)
-				if (vec[l-1-i] != n)
-					padok = 0;
-			if (padok)
-				vec.resize(l - n);
-		}
-		std::ofstream file(path);
-		if (!vec.empty())
-			file.write(reinterpret_cast<char*>(&vec[0]), vec.size());
-    	file.close();
+		return decryptMode(plt, BlockMode::ECB, Padding::PKCS7);
 	}

@@ -15,30 +15,6 @@
 
 
 
-#define padPKCS(pvec, missing) for (int i = 0; i < missing; ++i)\
-                                                                pvec.push_back((uint8_t) missing);
-
-#define padZeros(pvec, missing) for (int i = 0; i < missing; ++i)\
-                                                                pvec.push_back((uint8_t) 0);
-
-#define padANSIX923(pvec, missing) for (int i = 0; i < missing-1; ++i)\
-                                                                        pvec.push_back((uint8_t) 0);\
-                                                                   pvec.push_back((uint8_t) missing);
-
-#define padISO78164(pvec, missing) pvec.push_back((uint8_t) 0x80);\
-                                                                   for (int i = 0; i < missing-1; ++i)\
-                                                                                pvec.push_back((uint8_t) 0);\
-
-
-
-#define pad(pvec, missing) for(int i = 0; i < missing; ++i)\
-                                        pvec.push_back('0');
-
-
-
-
-
-
 #define rotl4(arr1) t = arr1[0];\
 			arr1[0] = arr1[1];\
 			arr1[1] = arr1[2];\
@@ -218,7 +194,7 @@
 			target = 48;
 		int m = target - (int)key.size();
 		if (m > 0)
-			pad(key, m);
+			key.append(m, '0');
 		if ((int)key.size() > 64)
 			key = key.substr(0,64);
  
@@ -425,73 +401,49 @@ void AES::decrypt_block256(uint8_t *p) const
 
 
 
-	void AES::encrypt(uint8_t *plt, int len) const
-	{	
+	int AES::blockSize() const
+	{
+		return 16;
+	}
+
+	void AES::encryptBlock(uint8_t *block) const
+	{
 		switch(Subkeys.size())
 		{
-			case 60:
-				for(uint8_t *i = plt; i+16<=plt + len; i = i + 16)
-					encrypt_block256(i);
-				break;
-			case 52:
-				for(uint8_t *i = plt; i+16<=plt + len; i = i + 16)
-					encrypt_block192(i);
-				break;
-			case 44:
-				for(uint8_t *i = plt; i+16<=plt + len; i = i + 16)
-					encrypt_block128(i);
-				break;
-
+			case 60: encrypt_block256(block); break;
+			case 52: encrypt_block192(block); break;
+			case 44: encrypt_block128(block); break;
 		}
-		
 	}
+
+	void AES::decryptBlock(uint8_t *block) const
+	{
+		switch(Subkeys.size())
+		{
+			case 60: decrypt_block256(block); break;
+			case 52: decrypt_block192(block); break;
+			case 44: decrypt_block128(block); break;
+		}
+	}
+
+	void AES::encrypt(uint8_t *plt, int len) const
+	{
+		encryptECB(plt, len);
+	}
+
 	std::vector<uint8_t> AES::encrypt(std::vector<uint8_t> plt) const
 	{
-		int l = plt.size();
-		int m = 16 - (l%16);
-		for (int i = 0; i < m; ++i)
-			plt.push_back((uint8_t) m);
-		encrypt(&plt[0], plt.size());
-		return plt;
+		return encryptMode(plt, BlockMode::ECB, Padding::PKCS7);
 	}
 
 	void AES::decrypt(uint8_t *plt, int len) const
 	{
-		switch(Subkeys.size())
-		{
-			case 60:
-				for(uint8_t *i = plt; i+16<=plt + len; i = i + 16)
-					decrypt_block256(i);
-				break;
-			case 52:
-				for(uint8_t *i = plt; i+16<=plt + len; i = i + 16)
-					decrypt_block192(i);
-				break;
-			case 44:
-				for(uint8_t *i = plt; i+16<=plt + len; i = i + 16)
-					decrypt_block128(i);
-				break;
-		}
+		decryptECB(plt, len);
 	}
-
 
 	std::vector<uint8_t> AES::decrypt(std::vector<uint8_t> plt) const
 	{
-		decrypt(&plt[0], plt.size());
-		int l = plt.size();
-		if (l > 0)
-		{
-			int padok = 1;
-			uint8_t n = plt[l-1];
-			if (n < 1 || n > 16)
-				padok = 0;
-			for (int i = 0; i < n && padok; ++i)
-				if (plt[l-1-i] != n)
-					padok = 0;
-			if (padok)
-				plt.resize(l - n);
-		}
-		return plt;
+		return decryptMode(plt, BlockMode::ECB, Padding::PKCS7);
 	}
 
 

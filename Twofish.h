@@ -5,7 +5,9 @@
 #include <vector>
 #include <string>
 
-class Twofish{
+#include "BlockCipher.h"
+
+class Twofish : public BlockCipher{
 public:
 	Twofish() : mode(0), padding(0) {}
 	std::vector<std::vector<uint8_t>> RS = {{1,164,85,135,90,88,219,158},
@@ -47,13 +49,11 @@ public:
 
 	void decrypt_block(uint8_t *lb0,uint8_t *lb1,uint8_t *rb0,uint8_t *rb1) const;
 	
-	void encryptECB(uint8_t *plt, int len) const;
+	int blockSize() const;
 
-	void decryptECB(uint8_t *plt, int len) const;
+	void encryptBlock(uint8_t *block) const;
 
-	void encryptCBC(uint8_t *plt, int len, uint8_t *iv) const;
-
-	void decryptCBC(uint8_t *plt, int len, uint8_t *iv) const;
+	void decryptBlock(uint8_t *block) const;
 
 	std::vector<uint8_t> encrypt(std::vector<uint8_t> plt, std::vector<uint8_t> iv) const;
 

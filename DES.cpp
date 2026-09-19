@@ -5,26 +5,6 @@
 
 #include "DES.h"
 
-#define padPKCS(pvec, missing) for (int i = 0; i < missing; ++i)\
-								pvec.push_back((uint8_t) missing);\
-
-#define copy8(arr1, arr2) arr1[0] = *arr2;\
-	arr1[1] = *(arr2+1);\
-	arr1[2] = *(arr2+2);\
-	arr1[3] = *(arr2+3);\
-	arr1[4] = *(arr2+4);\
-	arr1[5] = *(arr2+5);\
-	arr1[6] = *(arr2+6);\
-	arr1[7] = *(arr2+7);
-
-#define xor8(arr1, arr2) arr1[0] ^= *arr2;\
-	arr1[1] ^= *(arr2+1);\
-	arr1[2] ^= *(arr2+2);\
-	arr1[3] ^= *(arr2+3);\
-	arr1[4] ^= *(arr2+4);\
-	arr1[5] ^= *(arr2+5);\
-	arr1[6] ^= *(arr2+6);\
-	arr1[7] ^= *(arr2+7);
 
 #define rotr28(xr,times) (((xr << times)|(xr >> 28-times)))&0xFFFFFFF
 
@@ -129,103 +109,28 @@ union word{
 		*rb = right.b[3]; *(rb+1) = right.b[2]; *(rb+2) = right.b[1];*(rb+3) = right.b[0];
 	}
 
-	void DES::encryptECB(uint8_t *plt, int len) const
+	int DES::blockSize() const
 	{
-		for(uint8_t *i = plt; i+8<=plt + len; i = i + 8)
-			encrypt_block(i,i+4);
+		return 8;
 	}
 
-	void DES::decryptECB(uint8_t *plt, int len) const
+	void DES::encryptBlock(uint8_t *block) const
 	{
-		for(uint8_t *i = plt; i+8<=plt + len; i = i + 8)
-			decrypt_block(i,i+4);
+		encrypt_block(block, block + 4);
 	}
 
-	void DES::encryptCBC(uint8_t *plt, int len, uint8_t *iv) const
+	void DES::decryptBlock(uint8_t *block) const
 	{
-		for(uint8_t *i = plt; i+8<=plt + len; i = i + 8)
-		{
-			xor8(i,iv)
-			encrypt_block(i,i+4);
-			iv = i;
-		}
-	}
-
-	void DES::decryptCBC(uint8_t *plt, int len, uint8_t *iv) const
-	{
-		uint8_t t[8];
-		for(uint8_t *i = plt; i+8<=plt + len; i = i + 8)
-		{
-			copy8(t,i)
-			decrypt_block(i,i+4);
-			xor8(i,iv)
-			copy8(iv,t)
-		}
+		decrypt_block(block, block + 4);
 	}
 
 	std::vector<uint8_t> DES::encrypt(std::vector<uint8_t> plt) const
 	{
-		int l = plt.size();
-		int m = 8 - (l%8);
-		padPKCS(plt, m)
-
-		encryptECB(&plt[0], plt.size());
-
-		return plt;
+		return encryptMode(plt, BlockMode::ECB, Padding::PKCS7);
 	}
 
 	std::vector<uint8_t> DES::decrypt(std::vector<uint8_t> plt) const
 	{
-		if (plt.empty())
-			return plt;
-		decryptECB(&plt[0], plt.size());
-		int l = plt.size();
-		int padok = 1;
-		uint8_t n = plt[l-1];
-		if (n < 1 || n > 8)
-			padok = 0;
-		for (int i = 0; i < n && padok; ++i)
-			if (plt[l-1-i] != n)
-				padok = 0;
-		if (padok)
-			plt.resize(l - n);
-		return plt;
+		return decryptMode(plt, BlockMode::ECB, Padding::PKCS7);
 	}
 
-	void DES::encrypt_File(char* path) const
-	{
-		std::ifstream input_file(path, std::ios::binary);
-		std::vector<uint8_t> vec((std::istreambuf_iterator<char>(input_file)), std::istreambuf_iterator<char>());
-		input_file.close();
-		int m = 8 - (vec.size()%8);
-		padPKCS(vec, m)
-		encryptECB(&vec[0], vec.size());
-		std::ofstream file(path);
-		file.write(reinterpret_cast<char*>(&vec[0]), vec.size());
-    	file.close();
-	}
-
-	void DES::decrypt_File(char* path) const
-	{
-		std::ifstream input_file(path, std::ios::binary);
-		std::vector<uint8_t> vec((std::istreambuf_iterator<char>(input_file)), std::istreambuf_iterator<char>());
-		input_file.close();
-		decryptECB(&vec[0], vec.size());
-		int l = vec.size();
-		if (l > 0)
-		{
-			int padok = 1;
-			uint8_t n = vec[l-1];
-			if (n < 1 || n > 8)
-				padok = 0;
-			for (int i = 0; i < n && padok; ++i)
-				if (vec[l-1-i] != n)
-					padok = 0;
-			if (padok)
-				vec.resize(l - n);
-		}
-		std::ofstream file(path);
-		if (!vec.empty())
-			file.write(reinterpret_cast<char*>(&vec[0]), vec.size());
-    	file.close();
-	}

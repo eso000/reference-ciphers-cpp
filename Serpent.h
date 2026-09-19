@@ -5,7 +5,9 @@
 #include <vector>
 #include <string>
 
-class Serpent{
+#include "BlockCipher.h"
+
+class Serpent : public BlockCipher{
 public:
 
 	std::vector<std::vector<uint8_t>> SBox ={{ 3, 8,15, 1,10, 6, 5,11,14,13, 4, 2, 7, 0, 9,12 },
@@ -43,21 +45,15 @@ public:
 
 	void decrypt_block(uint8_t *x0,uint8_t *x1,uint8_t *x2,uint8_t *x3) const;
 
-	void encryptECB(uint8_t *plt, int len) const;
+	int blockSize() const;
 
-	void decryptECB(uint8_t *plt, int len) const;
+	void encryptBlock(uint8_t *block) const;
 
-	void encryptCBC(uint8_t *plt, int len, uint8_t *iv) const;
-
-	void decryptCBC(uint8_t *plt, int len, uint8_t *iv) const;
+	void decryptBlock(uint8_t *block) const;
 
 	std::vector<uint8_t> encrypt(std::vector<uint8_t> plt) const;
 
 	std::vector<uint8_t> decrypt(std::vector<uint8_t> plt) const;
-
-	void encrypt_File(char* path) const;
-
-	void decrypt_File(char* path) const;
 
 };
 
