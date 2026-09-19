@@ -38,7 +38,7 @@
 
 	
 
-	void Blowfish::encrypt_block(uint8_t *lb,uint8_t *rb)
+	void Blowfish::encrypt_block(uint8_t *lb,uint8_t *rb) const
 	{
 		uint32_t left, right;
 		left = ((uint32_t)*lb<<24)| ((uint32_t)*(lb+1)<<16)|((uint32_t)*(lb+2)<<8)|*(lb+3);
@@ -60,7 +60,7 @@
 	}
 
 
-	void Blowfish::decrypt_block(uint8_t *lb,uint8_t *rb)
+	void Blowfish::decrypt_block(uint8_t *lb,uint8_t *rb) const
 	{
 		uint32_t left, right;
 		left = ((uint32_t)*lb<<24)| ((uint32_t)*(lb+1)<<16)|((uint32_t)*(lb+2)<<8)|*(lb+3);
@@ -136,12 +136,12 @@
 		}
 	}	
 	
-	void Blowfish::encryptECB(uint8_t *plt, int len)
+	void Blowfish::encryptECB(uint8_t *plt, int len) const
 	{
 		for(uint8_t *i = plt; i+8<=plt + len; i = i + 8)
 			encrypt_block(i,i+4);
 	}
-	void Blowfish::decryptECB(uint8_t *plt, int len)
+	void Blowfish::decryptECB(uint8_t *plt, int len) const
 	{
 		for(uint8_t *i = plt; i+8<=plt + len; i = i + 8)
 			decrypt_block(i,i+4);
@@ -151,7 +151,7 @@
 
 
 
-	void Blowfish::encryptCBC(uint8_t *plt, int len, uint8_t *iv)
+	void Blowfish::encryptCBC(uint8_t *plt, int len, uint8_t *iv) const
 	{	
 		for(uint8_t *i = plt; i+8<=plt + len; i = i + 8)
 		{	
@@ -161,7 +161,7 @@
 		}
 	}
 
-	void Blowfish::encryptPCBC(uint8_t *plt, int len, uint8_t *iv)
+	void Blowfish::encryptPCBC(uint8_t *plt, int len, uint8_t *iv) const
 	{
 		uint8_t t[8];
 		for(uint8_t *i = plt; i+8<=plt + len; i = i + 8)
@@ -174,7 +174,7 @@
 		}
 	}
 
-	void Blowfish::encryptCFB(uint8_t *plt, int len, uint8_t *iv)
+	void Blowfish::encryptCFB(uint8_t *plt, int len, uint8_t *iv) const
 	{
 		uint8_t reg[8];
 		copy8(reg,iv)
@@ -186,7 +186,7 @@
 		}
 	}
 
-	std::vector<uint8_t> Blowfish::encrypt(std::vector<uint8_t> plt, std::vector<uint8_t> iv)
+	std::vector<uint8_t> Blowfish::encrypt(std::vector<uint8_t> plt, std::vector<uint8_t> iv) const
 	{
 		int l = plt.size();
 		int m = 8 - (l%8);
@@ -201,7 +201,7 @@
 		return plt;
 	}
 
-	void Blowfish::encrypt_File(char* path)
+	void Blowfish::encrypt_File(char* path) const
 	{
 		std::ifstream input_file(path, std::ios::binary);
 		std::vector<uint8_t> vec((std::istreambuf_iterator<char>(input_file)), std::istreambuf_iterator<char>());
@@ -214,7 +214,7 @@
     	file.close();
 	}
 
-	void Blowfish::decrypt_File(char* path)
+	void Blowfish::decrypt_File(char* path) const
 	{
 		std::ifstream input_file(path, std::ios::binary);
 		std::vector<uint8_t> vec((std::istreambuf_iterator<char>(input_file)), std::istreambuf_iterator<char>());

@@ -35,33 +35,33 @@ public:
 	int padding: 4;
 
 	
-	uint32_t multgf(uint32_t a,uint32_t b,uint32_t pol);
+	uint32_t multgf(uint32_t a,uint32_t b,uint32_t pol) const;
 
-	uint8_t multgf(uint16_t a,uint16_t b);
+	uint8_t multgf(uint16_t a,uint16_t b) const;
 	
-	uint8_t RSAmul(int i, const uint8_t *p);
+	uint8_t RSAmul(int i, const uint8_t *p) const;
 
 	void generateKeys(const std::vector<uint8_t>& key);
 
-	void encrypt_block(uint8_t *lb0,uint8_t *lb1,uint8_t *rb0,uint8_t *rb1);
+	void encrypt_block(uint8_t *lb0,uint8_t *lb1,uint8_t *rb0,uint8_t *rb1) const;
 
-	void decrypt_block(uint8_t *lb0,uint8_t *lb1,uint8_t *rb0,uint8_t *rb1);
+	void decrypt_block(uint8_t *lb0,uint8_t *lb1,uint8_t *rb0,uint8_t *rb1) const;
 	
-	void encryptECB(uint8_t *plt, int len);
+	void encryptECB(uint8_t *plt, int len) const;
 
-	void decryptECB(uint8_t *plt, int len);
+	void decryptECB(uint8_t *plt, int len) const;
 
-	void encryptCBC(uint8_t *plt, int len, uint8_t *iv);
+	void encryptCBC(uint8_t *plt, int len, uint8_t *iv) const;
 
-	void decryptCBC(uint8_t *plt, int len, uint8_t *iv);
+	void decryptCBC(uint8_t *plt, int len, uint8_t *iv) const;
 
-	std::vector<uint8_t> encrypt(std::vector<uint8_t> plt, std::vector<uint8_t> iv);
+	std::vector<uint8_t> encrypt(std::vector<uint8_t> plt, std::vector<uint8_t> iv) const;
 
-	void encrypt_File(char* path);
+	void encrypt_File(char* path) const;
 
-	void encrypt_FileS(std::string path);
+	void encrypt_FileS(std::string path) const;
 
-	void decrypt_File(char* path);
+	void decrypt_File(char* path) const;
 
 };
 

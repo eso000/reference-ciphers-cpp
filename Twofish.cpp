@@ -126,7 +126,7 @@
 
 
 
-	uint32_t Twofish::multgf(uint32_t a,uint32_t b,uint32_t pol){
+	uint32_t Twofish::multgf(uint32_t a,uint32_t b,uint32_t pol) const {
 		if (b == 0 )
 			return 0L;
 		uint32_t p = 0;
@@ -141,7 +141,7 @@
 		return p;
 	}
 
-	uint8_t Twofish::multgf(uint16_t a,uint16_t b){
+	uint8_t Twofish::multgf(uint16_t a,uint16_t b) const {
 		if (b == 0 )
 			return (uint8_t)0;
 		uint16_t p = 0;
@@ -156,7 +156,7 @@
 		return (uint8_t)p;
 	}
 
-	uint8_t Twofish::RSAmul(int i, const uint8_t *p)
+	uint8_t Twofish::RSAmul(int i, const uint8_t *p) const
 	{
 		uint8_t result = 0;
 		for (int t = 0; t < 8; ++t)
@@ -270,7 +270,7 @@
 		}
 	}
 
-	void Twofish::encrypt_block(uint8_t *lb0,uint8_t *lb1,uint8_t *rb0,uint8_t *rb1)
+	void Twofish::encrypt_block(uint8_t *lb0,uint8_t *lb1,uint8_t *rb0,uint8_t *rb1) const
 	{
 		uint32_t left0, left1, right0, right1,newl0, newl1, temp, aph;
 		
@@ -309,7 +309,7 @@
 		*rb1 = byte3(newl1); *(rb1+1) = byte2(newl1);*(rb1+2) = byte1(newl1); *(rb1+3) = byte0(newl1);
 	}
 
-	void Twofish::decrypt_block(uint8_t *lb0,uint8_t *lb1,uint8_t *rb0,uint8_t *rb1)
+	void Twofish::decrypt_block(uint8_t *lb0,uint8_t *lb1,uint8_t *rb0,uint8_t *rb1) const
 	{
 		uint32_t left0, left1, right0, right1,newl0, newl1, temp, aph;
 		
@@ -351,12 +351,12 @@ left0 = (*lb0)| ((uint32_t)*(lb0+1)<<8)|((uint32_t)*(lb0+2)<<16)| ((uint32_t)*(l
 	
 
 	
-	void Twofish::encryptECB(uint8_t *plt, int len)
+	void Twofish::encryptECB(uint8_t *plt, int len) const
 	{
 		for(uint8_t *i = plt; i+16<=plt + len; i = i + 16)
 			encrypt_block(i,i+4,i+8, i+12);
 	}
-	void Twofish::decryptECB(uint8_t *plt, int len)
+	void Twofish::decryptECB(uint8_t *plt, int len) const
 	{
 		for(uint8_t *i = plt; i+16<=plt + len; i = i + 16)
 			decrypt_block(i,i+4,i+8, i+12);
@@ -365,7 +365,7 @@ left0 = (*lb0)| ((uint32_t)*(lb0+1)<<8)|((uint32_t)*(lb0+2)<<16)| ((uint32_t)*(l
 
 
 
-	void Twofish::encryptCBC(uint8_t *plt, int len, uint8_t *iv)
+	void Twofish::encryptCBC(uint8_t *plt, int len, uint8_t *iv) const
 	{	
 		for(uint8_t *i = plt; i+16<=plt + len; i = i + 16)
 		{	
@@ -375,7 +375,7 @@ left0 = (*lb0)| ((uint32_t)*(lb0+1)<<8)|((uint32_t)*(lb0+2)<<16)| ((uint32_t)*(l
 		}
 	}
 
-	void Twofish::decryptCBC(uint8_t *plt, int len, uint8_t *iv)
+	void Twofish::decryptCBC(uint8_t *plt, int len, uint8_t *iv) const
 	{	
 		uint8_t temp[16];
 		for(uint8_t *i = plt; i+16<=plt + len; i = i + 16)
@@ -387,7 +387,7 @@ left0 = (*lb0)| ((uint32_t)*(lb0+1)<<8)|((uint32_t)*(lb0+2)<<16)| ((uint32_t)*(l
 		}
 	}
 
-	std::vector<uint8_t> Twofish::encrypt(std::vector<uint8_t> plt, std::vector<uint8_t> iv)
+	std::vector<uint8_t> Twofish::encrypt(std::vector<uint8_t> plt, std::vector<uint8_t> iv) const
 	{
 		int m = 16 - (int)(plt.size() % 16);
 		padPKCS(plt, m)
@@ -404,7 +404,7 @@ left0 = (*lb0)| ((uint32_t)*(lb0+1)<<8)|((uint32_t)*(lb0+2)<<16)| ((uint32_t)*(l
 
 
 
-	void Twofish::encrypt_File(char* path)
+	void Twofish::encrypt_File(char* path) const
 	{
 		uint8_t ts[16] = {(uint8_t)0xff, (uint8_t)0xff, (uint8_t)0xff, (uint8_t)0xff,(uint8_t)0xff,(uint8_t)0xff,(uint8_t)0xff,(uint8_t)0xff,(uint8_t)0xff, (uint8_t)0xff, (uint8_t)0xff, (uint8_t)0xff,(uint8_t)0xff,(uint8_t)0xff,(uint8_t)0xff,(uint8_t)0xff};
 		std::ifstream input_file(path, std::ios::binary);
@@ -432,7 +432,7 @@ left0 = (*lb0)| ((uint32_t)*(lb0+1)<<8)|((uint32_t)*(lb0+2)<<16)| ((uint32_t)*(l
     	file.close();
 	}
 
-	void Twofish::encrypt_FileS(std::string path)
+	void Twofish::encrypt_FileS(std::string path) const
 	{
 		uint8_t ts[16] = {(uint8_t)0xff, (uint8_t)0xff, (uint8_t)0xff, (uint8_t)0xff,(uint8_t)0xff,(uint8_t)0xff,(uint8_t)0xff,(uint8_t)0xff,(uint8_t)0xff, (uint8_t)0xff, (uint8_t)0xff, (uint8_t)0xff,(uint8_t)0xff,(uint8_t)0xff,(uint8_t)0xff,(uint8_t)0xff};
 		std::ifstream input_file(path, std::ios::binary);
@@ -460,7 +460,7 @@ left0 = (*lb0)| ((uint32_t)*(lb0+1)<<8)|((uint32_t)*(lb0+2)<<16)| ((uint32_t)*(l
     	file.close();
 	}
 
-	void Twofish::decrypt_File(char* path)
+	void Twofish::decrypt_File(char* path) const
 	{	
 		uint8_t ts[16] = {(uint8_t)0xff, (uint8_t)0xff, (uint8_t)0xff, (uint8_t)0xff,(uint8_t)0xff,(uint8_t)0xff,(uint8_t)0xff,(uint8_t)0xff,(uint8_t)0xff, (uint8_t)0xff, (uint8_t)0xff, (uint8_t)0xff,(uint8_t)0xff,(uint8_t)0xff,(uint8_t)0xff,(uint8_t)0xff};
 
@@ -479,24 +479,4 @@ left0 = (*lb0)| ((uint32_t)*(lb0+1)<<8)|((uint32_t)*(lb0+2)<<16)| ((uint32_t)*(l
 		file.write(reinterpret_cast<char*>(&vec[0]), vec.size() * sizeof(vec[0]));
     	file.close();
 	}
-
-
-
-/*extern "C"
-{
-    Twofish* new_Blowfish() {return new Twofish();}
-    void generateKeys(Twofish* bf,const char* key) {bf->generateKeys(key);}
-    void encrypt_File(Twofish* bf, char* path) {bf->encrypt_File(path);}
-    void decrypt_File(Twofish* bf, char* path) {bf->decrypt_File(path);}
-    void setMode(Twofish* bf, int m) {bf->mode = m;}
-    void setPadding(Twofish* bf, int p) {bf->padding = p;}
-    void delete_Blowfish(Twofish* bf)
-    {
-        if (bf)
-        {
-            delete bf;
-            bf = nullptr;
-        }
-    }
-}*/
 

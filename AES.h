@@ -33,29 +33,29 @@ public:
 
 	std::vector<uint32_t> Subkeys;
 
-	uint8_t GFMult(int i, uint8_t s);
+	uint8_t GFMult(int i, uint8_t s) const;
 
 	void generateKeys(std::string key);
 
-	void encrypt_block128(uint8_t *p);
+	void encrypt_block128(uint8_t *p) const;
 
-	void encrypt_block192(uint8_t *p);
+	void encrypt_block192(uint8_t *p) const;
 
-	void encrypt_block256(uint8_t *p);
+	void encrypt_block256(uint8_t *p) const;
 
-	void decrypt_block128(uint8_t *p);
+	void decrypt_block128(uint8_t *p) const;
 
-	void decrypt_block192(uint8_t *p);
+	void decrypt_block192(uint8_t *p) const;
 
-	void decrypt_block256(uint8_t *p);
+	void decrypt_block256(uint8_t *p) const;
 
-	void encrypt(uint8_t *plt, int len);
+	void encrypt(uint8_t *plt, int len) const;
 	
-	std::vector<uint8_t> encrypt(std::vector<uint8_t> plt);
+	std::vector<uint8_t> encrypt(std::vector<uint8_t> plt) const;
 
-	void decrypt(uint8_t *plt, int len);
+	void decrypt(uint8_t *plt, int len) const;
 
-	std::vector<uint8_t> decrypt(std::vector<uint8_t> plt);
+	std::vector<uint8_t> decrypt(std::vector<uint8_t> plt) const;
 
 	
 };

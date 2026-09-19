@@ -16,27 +16,27 @@ public:
 	
 	
 
-	void encrypt_block(uint8_t *lb,uint8_t *rb);
+	void encrypt_block(uint8_t *lb,uint8_t *rb) const;
 
-	void decrypt_block(uint8_t *lb,uint8_t *rb);
+	void decrypt_block(uint8_t *lb,uint8_t *rb) const;
 
 	void generateKeys(const std::vector<uint8_t>& key);
 	
-	void encryptECB(uint8_t *plt, int len);
+	void encryptECB(uint8_t *plt, int len) const;
 
-	void decryptECB(uint8_t *plt, int len);
+	void decryptECB(uint8_t *plt, int len) const;
 
-	void encryptCBC(uint8_t *plt, int len, uint8_t *iv);
+	void encryptCBC(uint8_t *plt, int len, uint8_t *iv) const;
 
-	void encryptPCBC(uint8_t *plt, int len, uint8_t *iv);
+	void encryptPCBC(uint8_t *plt, int len, uint8_t *iv) const;
 
-	void encryptCFB(uint8_t *plt, int len, uint8_t *iv);
+	void encryptCFB(uint8_t *plt, int len, uint8_t *iv) const;
 
-	std::vector<uint8_t> encrypt(std::vector<uint8_t> plt, std::vector<uint8_t> iv);
+	std::vector<uint8_t> encrypt(std::vector<uint8_t> plt, std::vector<uint8_t> iv) const;
 	
-	void encrypt_File(char* path);
+	void encrypt_File(char* path) const;
 
-	void decrypt_File(char* path);
+	void decrypt_File(char* path) const;
 
 };
 

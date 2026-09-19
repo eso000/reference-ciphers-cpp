@@ -188,7 +188,7 @@
 
 
 
-	uint8_t AES::GFMult(int i, uint8_t s){
+	uint8_t AES::GFMult(int i, uint8_t s) const {
 		switch(i){
 			case 1:
 				return s;
@@ -278,7 +278,7 @@
 		
 	}
 
-	void AES::encrypt_block128(uint8_t *p)
+	void AES::encrypt_block128(uint8_t *p) const
 	{	
 		uint8_t temp[16];
 
@@ -300,7 +300,7 @@
 
 	}
 
-	void AES::encrypt_block192(uint8_t *p)
+	void AES::encrypt_block192(uint8_t *p) const
 	{	
 		uint8_t temp[16];
 
@@ -323,7 +323,7 @@
 		lastround(columnB, p, 48)
 	}
 
-	void AES::encrypt_block256(uint8_t *p)
+	void AES::encrypt_block256(uint8_t *p) const
 	{	
 		uint8_t temp[16];
 
@@ -349,7 +349,7 @@
 		lastround(columnB, p, 56)
 	}
 
-	void AES::decrypt_block128(uint8_t *p)
+	void AES::decrypt_block128(uint8_t *p) const
 	{	
 		uint8_t temp[16];
 		uint32_t columnA[4];
@@ -372,7 +372,7 @@
 	}
 
 
-	void AES::decrypt_block192(uint8_t *p)
+	void AES::decrypt_block192(uint8_t *p) const
 	{	
 		uint8_t temp[16];
 		uint32_t columnA[4];
@@ -396,7 +396,7 @@
 		lastInvround(columnA, p, 0)		
 	}
 
-void AES::decrypt_block256(uint8_t *p)
+void AES::decrypt_block256(uint8_t *p) const
 	{	
 		uint8_t temp[16];
 		uint32_t columnA[4];
@@ -425,7 +425,7 @@ void AES::decrypt_block256(uint8_t *p)
 
 
 
-	void AES::encrypt(uint8_t *plt, int len)
+	void AES::encrypt(uint8_t *plt, int len) const
 	{	
 		switch(Subkeys.size())
 		{
@@ -445,7 +445,7 @@ void AES::decrypt_block256(uint8_t *p)
 		}
 		
 	}
-	std::vector<uint8_t> AES::encrypt(std::vector<uint8_t> plt)
+	std::vector<uint8_t> AES::encrypt(std::vector<uint8_t> plt) const
 	{
 		int l = plt.size();
 		int m = 16 - (l%16);
@@ -455,7 +455,7 @@ void AES::decrypt_block256(uint8_t *p)
 		return plt;
 	}
 
-	void AES::decrypt(uint8_t *plt, int len)
+	void AES::decrypt(uint8_t *plt, int len) const
 	{
 		switch(Subkeys.size())
 		{
@@ -475,7 +475,7 @@ void AES::decrypt_block256(uint8_t *p)
 	}
 
 
-	std::vector<uint8_t> AES::decrypt(std::vector<uint8_t> plt)
+	std::vector<uint8_t> AES::decrypt(std::vector<uint8_t> plt) const
 	{
 		decrypt(&plt[0], plt.size());
 		int l = plt.size();
