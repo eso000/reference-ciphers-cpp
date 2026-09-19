@@ -72,8 +72,8 @@
 			for (int b = 3; b >= 0; --b)
 				bin += ((v>>b)&1) ? '1' : '0';
 		}
-// Crypto++ pads the key words as k0[keylen/4] |= 1 << ((keylen%4)*8),
-		// i.e. a little-endian '1' bit in the byte right after the key bytes.
+// The spec pads short keys by appending a '1' bit, i.e. a byte
+		// of 0x01 right after the key bytes.
 		bin += "00000001";
 	while ((int)bin.size() < 256)
 		bin += '0';
