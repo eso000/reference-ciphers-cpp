@@ -145,6 +145,76 @@ int main()
 		CHECK(0, "vector API full padding block");
 	}
 
+	printf("== ECB multi-block round trip ==\n");
+	{
+		const char *kkeys[] = {K128, K192, K256};
+		const char *labels[] = {"AES-128", "AES-192", "AES-256"};
+		for (int s = 0; s < 3; ++s)
+		{
+			char name[96];
+			AES c, d;
+			c.generateKeys(kkeys[s]);
+			d.generateKeys(kkeys[s]);
+			std::vector<uint8_t> v, w;
+			for (int i = 0; i < 32; ++i)
+				v.push_back((uint8_t)(0xA5 + i));
+			w = v;
+			c.encrypt(&v[0], (int)v.size());
+			snprintf(name, sizeof(name), "%s: ciphertext differs from plaintext", labels[s]);
+			CHECK(!compareVector(v, w), name);
+			d.decrypt(&v[0], (int)v.size());
+			snprintf(name, sizeof(name), "%s: encrypt+decrypt restores plaintext", labels[s]);
+			CHECK(compareVector(v, w), name);
+		}
+	}
+
+	printf("== vector API padding edge cases ==\n");
+	try
+	{
+		AES c, d;
+		c.generateKeys(K256);
+		d.generateKeys(K256);
+		std::vector<uint8_t> pt;
+		std::vector<uint8_t> ct = c.encrypt(pt);
+		CHECK(ct.size() == 16, "empty input padded to one full block");
+		std::vector<uint8_t> rt = d.decrypt(ct);
+		CHECK(compareVector(rt, pt), "empty input round trip");
+	}
+	catch (...)
+	{
+		CHECK(0, "vector API empty input");
+	}
+	try
+	{
+		AES c, d;
+		c.generateKeys(K128);
+		d.generateKeys(K128);
+		std::vector<uint8_t> pt(31, 0x42);
+		std::vector<uint8_t> ct = c.encrypt(pt);
+		CHECK(ct.size() == 32, "31-byte input padded to two blocks");
+		std::vector<uint8_t> rt = d.decrypt(ct);
+		CHECK(compareVector(rt, pt), "31-byte input round trip");
+	}
+	catch (...)
+	{
+		CHECK(0, "vector API 31-byte round trip");
+	}
+	try
+	{
+		AES c, d;
+		c.generateKeys(K128);
+		d.generateKeys(K128);
+		std::vector<uint8_t> pt = hexToVec("00112233445566778899aabbccddeeff");
+		std::vector<uint8_t> ct = c.encrypt(pt);
+		ct[31] = 0x00;
+		std::vector<uint8_t> rt = d.decrypt(ct);
+		CHECK(rt.size() == 32, "invalid padding is not stripped");
+	}
+	catch (...)
+	{
+		CHECK(0, "vector API invalid padding");
+	}
+
 	printf("\n%d test(s) failed\n", g_fails);
 	return g_fails ? 1 : 0;
 }
