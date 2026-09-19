@@ -93,10 +93,10 @@ int main()
 	runKatDec("kat 2 decrypt", K256, "11111111111111111111111111111111", "a482eaa5d5771f2fdb2ea1a5f141b9e2");
 
 	printf("== 128/192-bit key known-answer tests ==\n");
-	runKat("kat 128-bit encrypt", "0102030405060708090a0b0c0d0e0f10", P0, "74bfd1dad54afd5f8eb3ae1fb0064d42");
-	runKatDec("kat 128-bit decrypt", "0102030405060708090a0b0c0d0e0f10", P0, "74bfd1dad54afd5f8eb3ae1fb0064d42");
-	runKat("kat 192-bit encrypt", "0102030405060708090a0b0c0d0e0f101112131415161718", P0, "de97dc8dfef97afc46d5d028397ec07f");
-	runKatDec("kat 192-bit decrypt", "0102030405060708090a0b0c0d0e0f101112131415161718", P0, "de97dc8dfef97afc46d5d028397ec07f");
+	runKat("kat 128-bit encrypt", "0102030405060708090a0b0c0d0e0f10", P0, "98874e1fbed147b9f34420e4118c4465");
+	runKatDec("kat 128-bit decrypt", "0102030405060708090a0b0c0d0e0f10", P0, "98874e1fbed147b9f34420e4118c4465");
+	runKat("kat 192-bit encrypt", "0102030405060708090a0b0c0d0e0f101112131415161718", P0, "17141e4724812f8bbe3e0ab978d1521f");
+	runKatDec("kat 192-bit decrypt", "0102030405060708090a0b0c0d0e0f101112131415161718", P0, "17141e4724812f8bbe3e0ab978d1521f");
 
 	printf("== ECB multi-block round trip ==\n");
 	{

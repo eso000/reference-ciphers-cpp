@@ -72,9 +72,11 @@
 			for (int b = 3; b >= 0; --b)
 				bin += ((v>>b)&1) ? '1' : '0';
 		}
-		bin += '1';
-		while ((int)bin.size() < 256)
-			bin += '0';
+// Crypto++ pads the key words as k0[keylen/4] |= 1 << ((keylen%4)*8),
+		// i.e. a little-endian '1' bit in the byte right after the key bytes.
+		bin += "00000001";
+	while ((int)bin.size() < 256)
+		bin += '0';
 		std::string out;
 		for (int i = 0; i < 256; i += 4)
 		{
