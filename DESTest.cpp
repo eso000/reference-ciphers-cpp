@@ -33,11 +33,11 @@ std::vector<uint8_t> hexToVec(const char *hex)
 	return v;
 }
 
-int desEncrypt(const char *key, std::vector<uint8_t> in, std::vector<uint8_t> *out)
+int desEncrypt(const char *key, std::vector<uint8_t> in, std::vector<uint8_t> *out, bool alt = true)
 {
 	try
 	{
-		DES c;
+		DES c(alt);
 		c.generateKeys(key);
 		*out = in;
 		c.encryptECB(&(*out)[0], out->size());
@@ -49,11 +49,11 @@ int desEncrypt(const char *key, std::vector<uint8_t> in, std::vector<uint8_t> *o
 	}
 }
 
-int desDecrypt(const char *key, std::vector<uint8_t> in, std::vector<uint8_t> *out)
+int desDecrypt(const char *key, std::vector<uint8_t> in, std::vector<uint8_t> *out, bool alt = true)
 {
 	try
 	{
-		DES c;
+		DES c(alt);
 		c.generateKeys(key);
 		*out = in;
 		c.decryptECB(&(*out)[0], out->size());
@@ -65,17 +65,17 @@ int desDecrypt(const char *key, std::vector<uint8_t> in, std::vector<uint8_t> *o
 	}
 }
 
-void runKat(const char *name, const char *key, const char *plain, const char *cipher)
+void runKat(const char *name, const char *key, const char *plain, const char *cipher, bool alt = true)
 {
 	std::vector<uint8_t> got;
-	int ok = desEncrypt(key, hexToVec(plain), &got);
+	int ok = desEncrypt(key, hexToVec(plain), &got, alt);
 	CHECK(ok && compareVector(got, hexToVec(cipher)), name);
 }
 
-void runKatDec(const char *name, const char *key, const char *plain, const char *cipher)
+void runKatDec(const char *name, const char *key, const char *plain, const char *cipher, bool alt = true)
 {
 	std::vector<uint8_t> got;
-	int ok = desDecrypt(key, hexToVec(cipher), &got);
+	int ok = desDecrypt(key, hexToVec(cipher), &got, alt);
 	CHECK(ok && compareVector(got, hexToVec(plain)), name);
 }
 
@@ -85,13 +85,71 @@ int main()
 	const char *K2 = "0E329232EA6D0D73";
 	const char *K3 = "AABB09182736CCDD";
 
-	printf("== standard DES known-answer tests ==\n");
-	runKat("kat 1 encrypt", K1, "0123456789ABCDEF", "85E813540F0AB405");
-	runKatDec("kat 1 decrypt", K1, "0123456789ABCDEF", "85E813540F0AB405");
-	runKat("kat 2 encrypt", K2, "8787878787878787", "0000000000000000");
-	runKatDec("kat 2 decrypt", K2, "8787878787878787", "0000000000000000");
-	runKat("kat 3 encrypt", K3, "123456ABCD132536", "C0B7A8D05F3A829C");
-	runKatDec("kat 3 decrypt", K3, "123456ABCD132536", "C0B7A8D05F3A829C");
+	printf("== standard DES known-answer tests (both IP/FP implementations) ==\n");
+	for (int ai = 0; ai < 2; ++ai)
+	{
+		const char *mode = ai ? "alt" : "naive";
+		char name[128];
+		snprintf(name, sizeof(name), "kat 1 encrypt (%s)", mode);
+		runKat(name, K1, "0123456789ABCDEF", "85E813540F0AB405", ai);
+		snprintf(name, sizeof(name), "kat 1 decrypt (%s)", mode);
+		runKatDec(name, K1, "0123456789ABCDEF", "85E813540F0AB405", ai);
+		snprintf(name, sizeof(name), "kat 2 encrypt (%s)", mode);
+		runKat(name, K2, "8787878787878787", "0000000000000000", ai);
+		snprintf(name, sizeof(name), "kat 2 decrypt (%s)", mode);
+		runKatDec(name, K2, "8787878787878787", "0000000000000000", ai);
+		snprintf(name, sizeof(name), "kat 3 encrypt (%s)", mode);
+		runKat(name, K3, "123456ABCD132536", "C0B7A8D05F3A829C", ai);
+		snprintf(name, sizeof(name), "kat 3 decrypt (%s)", mode);
+		runKatDec(name, K3, "123456ABCD132536", "C0B7A8D05F3A829C", ai);
+	}
+
+	printf("== delta-swap networks vs spec tables ==\n");
+	{
+		DES c;
+		uint64_t x = 0x123456789abcdef0ULL;
+		int checked = 0;
+		for (int i = 0; i < 256; ++i)
+		{
+			x = x * 6364136223846793005ULL + 1442695040888963407ULL;
+			if (DES::ip_perm_alt(x) == c.permutate(x, c.initialperm, 64))
+				++checked;
+		}
+		CHECK(checked == 256, "ip_perm_alt equals IP table (256 random blocks)");
+		checked = 0;
+		x = 0x123456789abcdef0ULL;
+		for (int i = 0; i < 256; ++i)
+		{
+			x = x * 6364136223846793005ULL + 1442695040888963407ULL;
+			if (DES::fp_perm_alt(x) == c.permutate(x, c.inverseperm, 64))
+				++checked;
+		}
+		CHECK(checked == 256, "fp_perm_alt equals FP table (256 random blocks)");
+		checked = 0;
+		x = 0x123456789abcdef0ULL;
+		for (int i = 0; i < 256; ++i)
+		{
+			x = x * 6364136223846793005ULL + 1442695040888963407ULL;
+			if (DES::fp_perm_alt(DES::ip_perm_alt(x)) == x)
+				++checked;
+		}
+		CHECK(checked == 256, "fp_perm_alt(ip_perm_alt(x)) == x (256 random blocks)");
+	}
+
+	printf("== alt vs naive agree ==\n");
+	{
+		DES a(true), b(false);
+		a.generateKeys(K3);
+		b.generateKeys(K3);
+		std::vector<uint8_t> in = hexToVec("123456ABCD132536");
+		std::vector<uint8_t> ca = in, cb = in;
+		a.encryptECB(&ca[0], 8);
+		b.encryptECB(&cb[0], 8);
+		CHECK(compareVector(ca, cb), "alt==naive encrypt");
+		a.decryptECB(&ca[0], 8);
+		b.decryptECB(&cb[0], 8);
+		CHECK(compareVector(ca, cb) && compareVector(ca, in), "alt==naive decrypt");
+	}
 
 	printf("== ECB multi-block round trip ==\n");
 	{

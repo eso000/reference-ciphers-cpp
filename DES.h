@@ -10,6 +10,10 @@
 class DES : public BlockCipher{
 public:
 
+	DES(bool useAlt = true) : use_alt(useAlt) {}
+
+	bool use_alt;
+
 	std::vector<uint8_t> initialperm = { 58, 50, 42, 34, 26, 18, 10, 2,
                 		   				 60, 52, 44, 36, 28, 20, 12, 4,
                 		   				 62, 54, 46, 38, 30, 22, 14, 6,
@@ -72,6 +76,10 @@ public:
 	std::vector<uint64_t> Subkeys;
 
 	uint64_t permutate(uint64_t x, std::vector<uint8_t> P, int base_size) const;
+
+	static uint64_t ip_perm_alt(uint64_t block);
+
+	static uint64_t fp_perm_alt(uint64_t block);
 
 	void generateKeys(std::string key);
 
