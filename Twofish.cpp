@@ -2,6 +2,22 @@
 #include <stdexcept>
 
 #include "Twofish.h"
+#include <iterator>
+#include "Twofish_data.h"
+
+Twofish::Twofish()
+{
+	padding = 0;
+	RS.clear();
+	for (const auto& r : RS_data) RS.emplace_back(std::begin(r), std::end(r));
+	MDS.clear();
+	for (const auto& r : MDS_data) MDS.emplace_back(std::begin(r), std::end(r));
+	MDSEF.assign(std::begin(MDSEF_data), std::end(MDSEF_data));
+	MDS5B.assign(std::begin(MDS5B_data), std::end(MDS5B_data));
+	q0.assign(std::begin(q0_data), std::end(q0_data));
+	q1.assign(std::begin(q1_data), std::end(q1_data));
+}
+
 
 
 

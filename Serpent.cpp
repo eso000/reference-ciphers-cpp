@@ -3,6 +3,17 @@
 #include <fstream>
 
 #include "Serpent.h"
+#include <iterator>
+#include "Serpent_data.h"
+
+Serpent::Serpent()
+{
+	SBox.clear();
+	for (const auto& r : SBox_data) SBox.emplace_back(std::begin(r), std::end(r));
+	invSBox.clear();
+	for (const auto& r : invSBox_data) invSBox.emplace_back(std::begin(r), std::end(r));
+}
+
 
 #define rotr(xr,times) (((xr << times)|(xr >> 32-times)))
 

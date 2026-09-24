@@ -12,6 +12,29 @@
 #include <thread>
 
 #include "AES.h"
+#include <iterator>
+#include "AES_data.h"
+
+AES::AES()
+{
+	SBoxes.assign(std::begin(SBoxes_data), std::end(SBoxes_data));
+	InvSBoxes.assign(std::begin(InvSBoxes_data), std::end(InvSBoxes_data));
+	GF2.assign(std::begin(GF2_data), std::end(GF2_data));
+	GF3.assign(std::begin(GF3_data), std::end(GF3_data));
+	GF9.assign(std::begin(GF9_data), std::end(GF9_data));
+	GF11.assign(std::begin(GF11_data), std::end(GF11_data));
+	GF13.assign(std::begin(GF13_data), std::end(GF13_data));
+	GF14.assign(std::begin(GF14_data), std::end(GF14_data));
+	MixRowCol0.assign(std::begin(MixRowCol0_data), std::end(MixRowCol0_data));
+	MixRowCol1.assign(std::begin(MixRowCol1_data), std::end(MixRowCol1_data));
+	MixRowCol2.assign(std::begin(MixRowCol2_data), std::end(MixRowCol2_data));
+	MixRowCol3.assign(std::begin(MixRowCol3_data), std::end(MixRowCol3_data));
+	invMixRowCol0.assign(std::begin(invMixRowCol0_data), std::end(invMixRowCol0_data));
+	invMixRowCol1.assign(std::begin(invMixRowCol1_data), std::end(invMixRowCol1_data));
+	invMixRowCol2.assign(std::begin(invMixRowCol2_data), std::end(invMixRowCol2_data));
+	invMixRowCol3.assign(std::begin(invMixRowCol3_data), std::end(invMixRowCol3_data));
+}
+
 
 
 
@@ -445,7 +468,3 @@ void AES::decrypt_block256(uint8_t *p) const
 	{
 		return decryptMode(plt, BlockMode::ECB, Padding::PKCS7);
 	}
-
-
-
-
