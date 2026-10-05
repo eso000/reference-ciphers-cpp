@@ -16,12 +16,6 @@ public:
 
 	std::vector<uint32_t> Subkeys;
 
-	uint8_t ltb(uint8_t v) const;
-
-	uint32_t ltb(std::string s) const;
-
-	uint32_t ltb32(int v) const;
-
 	void applySBox(uint32_t *x0,uint32_t *x1,uint32_t *x2, uint32_t *x3, int n) const;
 
 	void applyInvSBox(uint32_t *x0,uint32_t *x1,uint32_t *x2, uint32_t *x3, int n) const;

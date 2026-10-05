@@ -10,11 +10,11 @@ static int g_fails = 0;
 
 #define CHECK(cond, name) { if (cond) printf("PASS: %s\n", name); else { printf("FAIL: %s\n", name); ++g_fails; } }
 
-uint8_t compareVector(std::vector<uint8_t> v, std::vector<uint8_t> w)
+uint8_t compareVector(const std::vector<uint8_t> &v, const std::vector<uint8_t> &w)
 {
 	if (v.size() != w.size())
 		return 0;
-	for (int i = 0; i < v.size(); ++i)
+	for (size_t i = 0; i < v.size(); ++i)
 		if (v[i] != w[i])
 			return 0;
 	return 1;
@@ -33,7 +33,7 @@ std::vector<uint8_t> hexToVec(const char *hex)
 	return v;
 }
 
-int serpentEncrypt(const char *key, std::vector<uint8_t> in, std::vector<uint8_t> *out)
+int serpentEncrypt(const char *key, const std::vector<uint8_t> &in, std::vector<uint8_t> *out)
 {
 	try
 	{
@@ -49,7 +49,7 @@ int serpentEncrypt(const char *key, std::vector<uint8_t> in, std::vector<uint8_t
 	}
 }
 
-int serpentDecrypt(const char *key, std::vector<uint8_t> in, std::vector<uint8_t> *out)
+int serpentDecrypt(const char *key, const std::vector<uint8_t> &in, std::vector<uint8_t> *out)
 {
 	try
 	{
@@ -79,24 +79,134 @@ void runKatDec(const char *name, const char *key, const char *plain, const char 
 	CHECK(ok && compareVector(got, hexToVec(plain)), name);
 }
 
+/* The published single-block vectors, spanning all three key lengths and the
+   four NESSIE sets. The Python suite in tests/vectors.py carries all sixteen;
+   this is the subset worth burning C++ build time on. */
+struct Kat
+{
+	const char *name;
+	const char *key;
+	const char *plain;
+	const char *cipher;
+};
+
+static const Kat KATS[] = {
+	{"128-bit set1 v0", "80000000000000000000000000000000",
+		"00000000000000000000000000000000", "264e5481eff42a4606abda06c0bfda3d"},
+	{"128-bit set4 v0", "000102030405060708090a0b0c0d0e0f",
+		"00112233445566778899aabbccddeeff", "563e2cf8740a27c164804560391e9b27"},
+	{"128-bit set4 v1", "2bd6459f82c5b300952c49104881ff48",
+		"ea024714ad5c4d84ea024714ad5c4d84", "92d7f8ef2c36c53409f275902f06539f"},
+	{"192-bit set1 v0", "800000000000000000000000000000000000000000000000",
+		"00000000000000000000000000000000", "9e274ead9b737bb21efcfca548602689"},
+	{"192-bit set4 v0", "000102030405060708090a0b0c0d0e0f1011121314151617",
+		"00112233445566778899aabbccddeeff", "6ab816c82de53b93005008afa2246a02"},
+	{"256-bit set1 v0", "8000000000000000000000000000000000000000000000000000000000000000",
+		"00000000000000000000000000000000", "a223aa1288463c0e2be38ebd825616c0"},
+	{"256-bit set3 v17", "1111111111111111111111111111111111111111111111111111111111111111",
+		"11111111111111111111111111111111", "a482eaa5d5771f2fdb2ea1a5f141b9e2"},
+	{"256-bit set4 v1", "2bd6459f82c5b300952c49104881ff482bd6459f82c5b300952c49104881ff48",
+		"ea024714ad5c4d84ea024714ad5c4d84", "3e507730776b93fdea661235e1dd99f0"},
+};
+
+/* Multi-block vectors. Serpent's published vectors are single-block ECB, so
+   nothing published covers the mode wrappers; these were produced by GNU
+   nettle and are the only expected values here that are not traceable to a
+   numbered table. */
+static const char *TWO_BLOCK_PT = "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f";
+
+struct ModeKat
+{
+	const char *name;
+	const char *key;
+	const char *cipher;
+};
+
+static const ModeKat ECB_KATS[] = {
+	{"128-bit", "000102030405060708090a0b0c0d0e0f",
+		"4c7d8a328072a22c823e4a1f3acda16d1fe31aba9824fb1b33b42582291388db"},
+	{"192-bit", "000102030405060708090a0b0c0d0e0f1011121314151617",
+		"753d5b42d86672fb29070c4fe4eaaf4c4cc221270d91e743ca7b9d9e4e1ebe65"},
+	{"256-bit", "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+		"de269ff833e432b85b2e88d2701ce75ce534b936d9df2fc053bee5ed268fc68c"},
+};
+
+static const char *CBC_KEY = "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f";
+static const char *CBC_IV = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+static const char *CBC_CIPHER = "2aa5a2ff0c27a0f9590f6167e9e779d861fc6463d2e956091e91677d4f38860c";
+
 int main()
 {
 	const char *K256 = "1111111111111111111111111111111111111111111111111111111111111111";
-	const char *P0 = "00112233445566778899aabbccddeeff";
 
-	printf("== NESSIE set 1 known-answer tests ==\n");
-	runKat("kat 1 encrypt", "8000000000000000000000000000000000000000000000000000000000000000",
-		   "00000000000000000000000000000000", "a223aa1288463c0e2be38ebd825616c0");
-	runKatDec("kat 1 decrypt", "8000000000000000000000000000000000000000000000000000000000000000",
-			  "00000000000000000000000000000000", "a223aa1288463c0e2be38ebd825616c0");
-	runKat("kat 2 encrypt", K256, "11111111111111111111111111111111", "a482eaa5d5771f2fdb2ea1a5f141b9e2");
-	runKatDec("kat 2 decrypt", K256, "11111111111111111111111111111111", "a482eaa5d5771f2fdb2ea1a5f141b9e2");
+	printf("== NESSIE known-answer tests ==\n");
+	for (const Kat &k : KATS)
+	{
+		char label[96];
+		snprintf(label, sizeof(label), "kat %s encrypt", k.name);
+		runKat(label, k.key, k.plain, k.cipher);
+		snprintf(label, sizeof(label), "kat %s decrypt", k.name);
+		runKatDec(label, k.key, k.plain, k.cipher);
+	}
 
-	printf("== 128/192-bit key known-answer tests ==\n");
-	runKat("kat 128-bit encrypt", "0102030405060708090a0b0c0d0e0f10", P0, "98874e1fbed147b9f34420e4118c4465");
-	runKatDec("kat 128-bit decrypt", "0102030405060708090a0b0c0d0e0f10", P0, "98874e1fbed147b9f34420e4118c4465");
-	runKat("kat 192-bit encrypt", "0102030405060708090a0b0c0d0e0f101112131415161718", P0, "17141e4724812f8bbe3e0ab978d1521f");
-	runKatDec("kat 192-bit decrypt", "0102030405060708090a0b0c0d0e0f101112131415161718", P0, "17141e4724812f8bbe3e0ab978d1521f");
+	printf("== ECB two blocks (nettle) ==\n");
+	for (const ModeKat &k : ECB_KATS)
+	{
+		char label[96];
+		std::vector<uint8_t> pt = hexToVec(TWO_BLOCK_PT), ct = hexToVec(k.cipher), got;
+
+		snprintf(label, sizeof(label), "ecb two-block %s encrypt", k.name);
+		CHECK(serpentEncrypt(k.key, pt, &got) && compareVector(got, ct), label);
+
+		snprintf(label, sizeof(label), "ecb two-block %s decrypt", k.name);
+		CHECK(serpentDecrypt(k.key, ct, &got) && compareVector(got, pt), label);
+
+		/* ECB must not chain: encrypting block 2 alone gives the same bytes. */
+		std::vector<uint8_t> tail(pt.begin() + 16, pt.end()), half(ct.begin() + 16, ct.end());
+		snprintf(label, sizeof(label), "ecb two-block %s block 2 stands alone", k.name);
+		CHECK(serpentEncrypt(k.key, tail, &got) && compareVector(got, half), label);
+	}
+
+	printf("== CBC two blocks (nettle) ==\n");
+	{
+		Serpent c;
+		std::vector<uint8_t> pt = hexToVec(TWO_BLOCK_PT), ct = hexToVec(CBC_CIPHER), v = pt, iv = hexToVec(CBC_IV);
+		c.generateKeys(CBC_KEY);
+		c.encryptCBC(&v[0], (int)v.size(), &iv[0]);
+		CHECK(compareVector(v, ct), "cbc two-block encrypt");
+
+		/* CBC chains, so the two ciphertext blocks must differ. */
+		std::vector<uint8_t> first(ct.begin(), ct.begin() + 16), second(ct.begin() + 16, ct.end());
+		CHECK(!compareVector(first, second), "cbc two-block encrypt chains");
+
+		/* decryptCBC advances the IV it is handed, so start from a fresh copy. */
+		v = ct;
+		iv = hexToVec(CBC_IV);
+		c.decryptCBC(&v[0], (int)v.size(), &iv[0]);
+		CHECK(compareVector(v, pt), "cbc two-block decrypt");
+	}
+
+	printf("== Word order (paper's little-endian bitslice words) ==\n");
+	{
+		/* Subkey 0 for the all-zero 256-bit key pins the whole convention at
+		   once: little-endian loading of block and key words, the un-reversed
+		   golden-ratio constant and the un-reversed round counter. A
+		   bit-reversed reading of the same schedule gives different words.
+
+		   No published table lists intermediate subkeys, so this is a regression
+		   pin: the eight official ciphertexts above already constrain this
+		   schedule, because any error in it changes the ciphertext. */
+		static const uint32_t EXPECTED[4] = {
+			0x6f5795d0u, 0xa7e3a3ceu, 0xf2d998edu, 0x8ed77390u,
+		};
+		Serpent c;
+		c.generateKeys(std::string(64, '0'));
+		bool ok = c.Subkeys.size() == 132;
+		for (int i = 0; ok && i < 4; ++i)
+			ok = c.Subkeys[i] == EXPECTED[i];
+		CHECK(ok, "subkey 0 for the all-zero key is 0x6f5795d0 0xa7e3a3ce "
+		          "0xf2d998ed 0x8ed77390");
+	}
 
 	printf("== ECB multi-block round trip ==\n");
 	{

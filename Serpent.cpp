@@ -15,31 +15,36 @@ Serpent::Serpent()
 }
 
 
-#define rotr(xr,times) (((xr << times)|(xr >> 32-times)))
+/* The block is held as four 32-bit words in little-endian bit order, so the
+   paper's "<<<" and "<<" (Serpent proposal, Section 3) are plain rotl and
+   masked left shifts on those words. */
+#define rotr(xr,times) (((xr) >> (times)) | ((xr) << (32 - (times))))
 
-#define rotl(xr,times) (((xr >> times)|(xr << 32-times)))
+#define rotl(xr,times) (((xr) << (times)) | ((xr) >> (32 - (times))))
 
+/* The ten steps of the paper's linear transformation, in its order. */
 #define LT(x0, x1, x2, x3){\
         x0 = rotl(x0, 13);\
         x2 = rotl(x2, 3);\
         x1 = x1^x0^x2;\
-        x3 = x3^x2^(x0>>3);\
+        x3 = x3^x2^(x0<<3);\
         x1 = rotl(x1, 1);\
         x3 = rotl(x3, 7);\
         x0 = x0^x1^x3;\
-        x2 = x2^x3^ (x1>>7);\
+        x2 = x2^x3^(x1<<7);\
         x0 = rotl(x0, 5);\
         x2 = rotl(x2, 22);}
 
 
+/* The same ten steps in reverse order, with every rotation turned around. */
 #define invLT(x0, x1, x2, x3){\
         x2 = rotr(x2, 22);\
         x0 = rotr(x0, 5);\
-        x2 = x2^x3^(x1>>7);\
+        x2 = x2^x3^(x1<<7);\
         x0 = x0^x1^x3;\
         x3 = rotr(x3, 7);\
         x1 = rotr(x1, 1);\
-        x3 = x3^x2^(x0>>3);\
+        x3 = x3^x2^(x0<<3);\
         x1 = x1^x0^x2;\
         x2 = rotr(x2, 3);\
         x0 = rotr(x0, 13);}
@@ -98,41 +103,33 @@ Serpent::Serpent()
 	}
 
 
-	uint8_t Serpent::ltb(uint8_t v) const
-	{
-		uint8_t result = 0; 
-		for (int i = 0; i < 8; ++i)
-		{
-			result += (v>>i)&1;
-			if (i != 7)
-				result <<= 1;
-		}
-		return result;
-	}
+/* Word and byte conversion follow Serpent's bit order (Section 3.3): the first
+   bit of the block is the least significant bit of word 0, so the four bytes of
+   a word are read and written little-endian and left unreversed. */
+static uint32_t serpentLoad32(const uint8_t *p)
+{
+	return (uint32_t)p[0]
+		| ((uint32_t)p[1] << 8)
+		| ((uint32_t)p[2] << 16)
+		| ((uint32_t)p[3] << 24);
+}
 
-	uint32_t Serpent::ltb( std::string s) const
-	{
-		uint32_t result = 0;
-		for (int i = 0; i < 8; i=i+2)
-		 {	
-		 	 result += ltb(std::stoul(s.substr(i,2), 0, 16));
-		 	 if(i != 6)
-		 	 	result <<= 8;
-		 } 
-		return result;
-	}
+static void serpentStore32(uint8_t *p, uint32_t w)
+{
+	p[0] = (uint8_t)(w);
+	p[1] = (uint8_t)(w >> 8);
+	p[2] = (uint8_t)(w >> 16);
+	p[3] = (uint8_t)(w >> 24);
+}
 
-	uint32_t Serpent::ltb32( int v) const
-	{
-		uint32_t result = 0; 
-		for (int i = 0; i < 32; ++i)
-		{
-			result += (v>>i)&1;
-			if (i != 31)
-				result <<= 1;
-		}
-		return result;
-	}
+/* The same little-endian word, read from eight hex characters. */
+static uint32_t serpentWordFromHex(const std::string &s)
+{
+	uint32_t result = 0;
+	for (int i = 0; i < 4; ++i)
+		result |= (uint32_t)std::stoul(s.substr(2 * i, 2), 0, 16) << (8 * i);
+	return result;
+}
 
 	void Serpent::applySBox(uint32_t *x0,uint32_t *x1,uint32_t *x2, uint32_t *x3, int n) const{
         uint32_t r0 = *x0;
@@ -381,18 +378,24 @@ Serpent::Serpent()
 
     for (int i = 0; i<64; i = i + 8)
     {
-      w[i/8] = ltb(key.substr(i,8));
+      w[i/8] = serpentWordFromHex(key.substr(i,8));
     }
 
-       
+    /* Prekey recurrence (Section 4):
+         w_i := (w_i-8 ^ w_i-5 ^ w_i-3 ^ w_i-1 ^ PHI ^ i) <<< 11
+       with PHI the fractional part of the golden ratio, 0x9E3779B9. The eight
+       key words are w_-8 .. w_-1, so w[8] holds w_0. */
     for(int i=8; i< 140;++i){
-      wi = w[i - 8]^ w[i - 5]^ w[i - 3]^ w[i - 1]^2644438137L^ltb32(i-8);
+      wi = w[i - 8]^ w[i - 5]^ w[i - 3]^ w[i - 1]^ 0x9E3779B9u ^ (uint32_t)(i - 8);
       wi = rotl(wi,11);
       w[i] = wi;
      }
+     /* Subkey i is prekeys 4i .. 4i+3 through S-box (3 - i) mod 8, which is the
+        S3, S2, S1, S0, S7, S6, S5, S4 order listed in Section 4. C++'s % keeps
+        the sign of the dividend, so the double modulo keeps the index in 0..7. */
      for (int i=0;i<33;++i)
      {
-            applySBox(&w[4*i+8],&w[4*i+1+8],&w[4*i+2+8],&w[4*i+3+8],(((32 + 3 - i) % 32)%8));
+            applySBox(&w[4*i+8],&w[4*i+1+8],&w[4*i+2+8],&w[4*i+3+8],((3 - i) % 8 + 8) % 8);
      }        
         Subkeys.clear();
         for (uint32_t *i = &w[0]+8; i < &w[0]+140; ++i)
@@ -404,10 +407,10 @@ Serpent::Serpent()
 
 	void Serpent::encrypt_block(uint8_t *x0,uint8_t *x1,uint8_t *x2,uint8_t *x3) const
 	{
-			uint32_t w0 = (ltb(*x0)<<24) + (ltb(*(x0+1))<<16) + (ltb(*(x0+2))<<8) + ltb(*(x0+3));
-			uint32_t w1 = (ltb(*x1)<<24) + (ltb(*(x1+1))<<16) + (ltb(*(x1+2))<<8) + ltb(*(x1+3));
-			uint32_t w2 = (ltb(*x2)<<24) + (ltb(*(x2+1))<<16) + (ltb(*(x2+2))<<8) + ltb(*(x2+3));
-			uint32_t w3 = (ltb(*x3)<<24) + (ltb(*(x3+1))<<16) + (ltb(*(x3+2))<<8) + ltb(*(x3+3));
+			uint32_t w0 = serpentLoad32(x0);
+			uint32_t w1 = serpentLoad32(x1);
+			uint32_t w2 = serpentLoad32(x2);
+			uint32_t w3 = serpentLoad32(x3);
 			
 
 			round( 0,w0,w1,w2,w3)
@@ -446,37 +449,33 @@ Serpent::Serpent()
       w1 ^= Subkeys[(31<<2)+1];
       w2 ^= Subkeys[(31<<2)+2];
       w3 ^= Subkeys[(31<<2)+3];
-      applySBox(&w0, &w1, &w2, &w3, 31%8);
+      applySBox(&w0, &w1, &w2, &w3, 7); /* the last round used S7 */
       w0 ^= Subkeys[32<<2];
       w1 ^= Subkeys[(32<<2)+1];
       w2 ^= Subkeys[(32<<2)+2];
       w3 ^= Subkeys[(32<<2)+3];
       
-      *x0 = ltb(w0>>24 & 0xff); *(x0+1) = ltb((w0>>16 ) & 0xff); 
-      *(x0+2) = ltb((w0>>8 ) & 0xff); *(x0+3) = ltb(w0 & 0xff);
+      serpentStore32(x0, w0);
 
-      *x1 = ltb(w1>>24 & 0xff); *(x1+1) = ltb((w1>>16 ) & 0xff); 
-      *(x1+2) = ltb((w1>>8 ) & 0xff); *(x1+3) = ltb(w1 & 0xff);
+      serpentStore32(x1, w1);
 
-			*x2 = ltb(w2>>24 & 0xff); *(x2+1) = ltb((w2>>16 ) & 0xff); 
-      *(x2+2) = ltb((w2>>8 ) & 0xff); *(x2+3) = ltb(w2 & 0xff);
+      serpentStore32(x2, w2);
 
-      *x3 = ltb(w3>>24 & 0xff); *(x3+1) = ltb((w3>>16 ) & 0xff); 
-      *(x3+2) = ltb((w3>>8 ) & 0xff); *(x3+3) = ltb(w3 & 0xff);
+      serpentStore32(x3, w3);
 	}
 
 	void Serpent::decrypt_block(uint8_t *x0,uint8_t *x1,uint8_t *x2,uint8_t *x3) const
 	{
-			uint32_t w0 = (ltb(*x0)<<24) + (ltb(*(x0+1))<<16) + (ltb(*(x0+2))<<8) + ltb(*(x0+3));
-			uint32_t w1 = (ltb(*x1)<<24) + (ltb(*(x1+1))<<16) + (ltb(*(x1+2))<<8) + ltb(*(x1+3));
-			uint32_t w2 = (ltb(*x2)<<24) + (ltb(*(x2+1))<<16) + (ltb(*(x2+2))<<8) + ltb(*(x2+3));
-			uint32_t w3 = (ltb(*x3)<<24) + (ltb(*(x3+1))<<16) + (ltb(*(x3+2))<<8) + ltb(*(x3+3));
+			uint32_t w0 = serpentLoad32(x0);
+			uint32_t w1 = serpentLoad32(x1);
+			uint32_t w2 = serpentLoad32(x2);
+			uint32_t w3 = serpentLoad32(x3);
 
 			w0 ^= Subkeys[32<<2];
 			w1 ^= Subkeys[(32<<2)+1];
 			w2 ^= Subkeys[(32<<2)+2];
 			w3 ^= Subkeys[(32<<2)+3];
-			applyInvSBox(&w0, &w1, &w2, &w3, 31%8);
+			applyInvSBox(&w0, &w1, &w2, &w3, 7); /* the last round used S7 */
 			w0 ^= Subkeys[31<<2];
 			w1 ^= Subkeys[(31<<2)+1];
 			w2 ^= Subkeys[(31<<2)+2];
@@ -487,17 +486,13 @@ Serpent::Serpent()
 				roundInv(i, w0,w1,w2,w3)
 			}
 
-      *x0 = ltb(w0>>24 & 0xff); *(x0+1) = ltb((w0>>16 ) & 0xff); 
-      *(x0+2) = ltb((w0>>8 ) & 0xff); *(x0+3) = ltb(w0 & 0xff);
+      serpentStore32(x0, w0);
 
-      *x1 = ltb(w1>>24 & 0xff); *(x1+1) = ltb((w1>>16 ) & 0xff); 
-      *(x1+2) = ltb((w1>>8 ) & 0xff); *(x1+3) = ltb(w1 & 0xff);
+      serpentStore32(x1, w1);
 
-			*x2 = ltb(w2>>24 & 0xff); *(x2+1) = ltb((w2>>16 ) & 0xff); 
-      *(x2+2) = ltb((w2>>8 ) & 0xff); *(x2+3) = ltb(w2 & 0xff);
+      serpentStore32(x2, w2);
 
-      *x3 = ltb(w3>>24 & 0xff); *(x3+1) = ltb((w3>>16 ) & 0xff); 
-      *(x3+2) = ltb((w3>>8 ) & 0xff); *(x3+3) = ltb(w3 & 0xff);
+      serpentStore32(x3, w3);
 	}
 
 	int Serpent::blockSize() const
