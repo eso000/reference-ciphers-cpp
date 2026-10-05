@@ -239,17 +239,33 @@ int main()
 		CHECK(compareVector(readFile(path), orig), "cbc mode: file round trip");
 	}
 
+	/* Twofish takes a 128, 192 or 256-bit key. The check existed already; the
+	   point of adding the accepted lengths is that a range check could be
+	   widened without any of these failing. */
 	printf("== key length validation ==\n");
 	{
-		int bad[] = {0, 8, 15, 17, 40};
-		const char *badName[] = {"empty key rejected", "8-byte key rejected", "15-byte key rejected", "17-byte key rejected", "40-byte key rejected"};
-		for (int t = 0; t < 5; ++t)
+		const size_t accepted[] = {16, 24, 32};
+		for (size_t n : accepted)
 		{
 			Twofish c;
 			bool threw = false;
-			try { c.generateKeys(std::vector<uint8_t>(bad[t], 0xAB)); }
+			try { c.generateKeys(std::vector<uint8_t>(n, 0xAB)); }
 			catch (std::invalid_argument &) { threw = true; }
-			CHECK(threw, badName[t]);
+			char name[96];
+			snprintf(name, sizeof(name), "%zu-byte key accepted (Twofish-%d)", n, (int)(n / 2) * 8);
+			CHECK(!threw, name);
+		}
+
+		const size_t rejected[] = {0, 1, 8, 15, 17, 20, 23, 25, 31, 33, 40, 64};
+		for (size_t n : rejected)
+		{
+			Twofish c;
+			bool threw = false;
+			try { c.generateKeys(std::vector<uint8_t>(n, 0xAB)); }
+			catch (std::invalid_argument &) { threw = true; }
+			char name[96];
+			snprintf(name, sizeof(name), "%zu-byte key rejected", n);
+			CHECK(threw, name);
 		}
 	}
 

@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <cstring>
 #include <cstdint>
+#include <stdexcept>
 
 #include "Serpent.h"
 
@@ -239,6 +240,43 @@ int main()
 		CHECK(!compareVector(v, w), "cbc ciphertext differs from plaintext");
 		d.decryptCBC(&v[0], (int)v.size(), &iv2[0]);
 		CHECK(compareVector(v, w), "cbc encrypt+decrypt restores plaintext");
+	}
+
+	/* Serpent's specification accepts any key of 1 to 256 bits and defines the
+	   padding for shorter ones, which padKeyBit implements, so short keys are
+	   legal rather than an error. Only the two cases padKeyBit would paper over
+	   are refused: the empty key, which it turned into "00", and an over-long
+	   one, which it truncated to 64 characters without saying so.
+
+	   Note this differs from Python, which rejects anything but 16, 24 and 32
+	   bytes. C and Java agree with the specification and with nettle; Python is
+	   the outlier here. */
+	printf("== key length validation ==\n");
+	{
+		const size_t accepted[] = {1, 2, 3, 4, 8, 16, 24, 32, 48, 63, 64};
+		for (size_t n : accepted)
+		{
+			bool threw = false;
+			try { Serpent c; c.generateKeys(std::string(n, '0')); }
+			catch (std::invalid_argument &) { threw = true; }
+			char name[96];
+			/* An odd count is a half byte, which padKeyBit rounds up to the
+			   next whole byte before applying the spec's 0x01 padding, so
+			   report the byte count it actually keys. */
+			snprintf(name, sizeof(name), "%zu character key accepted (%zu-bit)", n, ((n + 1) / 2) * 8);
+			CHECK(!threw, name);
+		}
+
+		const size_t rejected[] = {0, 65, 72, 128};
+		for (size_t n : rejected)
+		{
+			bool threw = false;
+			try { Serpent c; c.generateKeys(std::string(n, '0')); }
+			catch (std::invalid_argument &) { threw = true; }
+			char name[96];
+			snprintf(name, sizeof(name), "%zu character key rejected", n);
+			CHECK(threw, name);
+		}
 	}
 
 	printf("== vector API / PKCS#7 padding ==\n");

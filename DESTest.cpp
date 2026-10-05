@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <cstring>
 #include <cstdint>
+#include <stdexcept>
 
 #include "DES.h"
 
@@ -242,16 +243,28 @@ int main()
 		CHECK(0, "vector API invalid padding");
 	}
 
+	/* DES takes a 64-bit key, i.e. exactly 16 hex characters. The check is
+	   here rather than in a shared helper because DES is the one cipher whose
+	   key is a single word. */
 	printf("== key validation ==\n");
-	try
 	{
-		DES c;
-		c.generateKeys("00");
-		CHECK(0, "short key rejected");
-	}
-	catch (...)
-	{
-		CHECK(1, "short key rejected");
+		bool threw = false;
+		try { DES c; c.generateKeys(std::string(16, '0')); }
+		catch (std::invalid_argument &) { threw = true; }
+		CHECK(!threw, "16 character key accepted");
+
+		/* Every other length, including the multiples of 16 that a
+		   hex-length check expressed in bytes would wrongly admit. */
+		const size_t rejected[] = {0, 1, 8, 15, 17, 24, 32, 48, 64};
+		for (size_t n : rejected)
+		{
+			threw = false;
+			try { DES c; c.generateKeys(std::string(n, '0')); }
+			catch (std::invalid_argument &) { threw = true; }
+			char name[96];
+			snprintf(name, sizeof(name), "%zu character key rejected", n);
+			CHECK(threw, name);
+		}
 	}
 
 	printf("\n%d test(s) failed\n", g_fails);

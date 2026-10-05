@@ -1,5 +1,6 @@
 #include <vector>
 #include <string>
+#include <stdexcept>
 #include <fstream>
 
 #include "Serpent.h"
@@ -372,6 +373,15 @@ static uint32_t serpentWordFromHex(const std::string &s)
 
 	void Serpent::generateKeys(std::string key)
 	{
+    /* Serpent's specification accepts any key of 1 to 256 bits and defines the
+       padding for shorter ones, which padKeyBit below implements, so a short
+       key is legal rather than an error. Only the two cases padKeyBit would
+       paper over are refused: the empty key, which it turns into "00", and an
+       over-long one, which it truncates to 64 characters without saying so.
+       The limit is in hex characters, since that is what the key is here. */
+    if (key.empty() || key.size() > 64)
+        throw std::invalid_argument("Serpent key must be 1 to 32 bytes, got "
+                                    + std::to_string((key.size() + 1) / 2));
     key = padKeyBit(key);
     uint32_t wi;
     uint32_t w[140];

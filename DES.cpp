@@ -129,7 +129,7 @@ uint64_t DES::fp_perm_alt(uint64_t block)
 
 	void DES::generateKeys(std::string key){
 		if (key.size() != 16)
-			throw std::invalid_argument("DES key must be 16 hex characters");
+			throw std::invalid_argument("DES key must be 16 hex characters, got " + std::to_string(key.size()));
 		Subkeys.clear();
 		uint64_t leftKey = std::stoull(key, 0, 16);
 		leftKey = permutate(leftKey, keyperm1, 64);

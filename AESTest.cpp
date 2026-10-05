@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <cstring>
 #include <cstdint>
+#include <stdexcept>
 
 #include "AES.h"
 
@@ -165,6 +166,49 @@ int main()
 			d.decrypt(&v[0], (int)v.size());
 			snprintf(name, sizeof(name), "%s: encrypt+decrypt restores plaintext", labels[s]);
 			CHECK(compareVector(v, w), name);
+		}
+	}
+
+	/* AES accepts a 128, 192 or 256-bit key, i.e. 32, 48 or 64 hex
+	   characters. generateKeys used to round the length up to the next of
+	   those sizes and pad with '0', so a 33-character key silently became a
+	   valid AES-192 key holding a '0' the caller never wrote, and anything
+	   past 64 characters was truncated. Both are refused now. */
+	printf("== key length validation ==\n");
+	{
+		const size_t accepted[] = {32, 48, 64};
+		for (size_t n : accepted)
+		{
+			bool threw = false;
+			try { AES c; c.generateKeys(std::string(n, '0')); }
+			catch (std::invalid_argument &) { threw = true; }
+			char name[96];
+			snprintf(name, sizeof(name), "%zu character key accepted (AES-%d)", n, (int)(n / 2) * 8);
+			CHECK(!threw, name);
+		}
+
+		const size_t rejected[] = {0, 1, 16, 30, 31, 33, 40, 47, 49, 63, 65, 128};
+		for (size_t n : rejected)
+		{
+			bool threw = false;
+			try { AES c; c.generateKeys(std::string(n, '0')); }
+			catch (std::invalid_argument &) { threw = true; }
+			char name[96];
+			snprintf(name, sizeof(name), "%zu character key rejected", n);
+			CHECK(threw, name);
+		}
+
+		/* The three lengths that used to be padded up, named individually
+		   because that silent coercion is the actual regression. */
+		const size_t padded[] = {1, 33, 49};
+		for (size_t n : padded)
+		{
+			bool threw = false;
+			try { AES c; c.generateKeys(std::string(n, '0')); }
+			catch (std::invalid_argument &) { threw = true; }
+			char name[96];
+			snprintf(name, sizeof(name), "%zu character key no longer zero-padded to a valid size", n);
+			CHECK(threw, name);
 		}
 	}
 

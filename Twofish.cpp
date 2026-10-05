@@ -130,7 +130,7 @@ Twofish::Twofish()
 	void Twofish::generateKeys(const std::vector<uint8_t>& key)
 	{
 		if (key.size() != 16 && key.size() != 24 && key.size() != 32)
-			throw std::invalid_argument("Twofish key must be 16, 24 or 32 bytes");
+			throw std::invalid_argument("Twofish key must be 16, 24 or 32 bytes, got " + std::to_string(key.size()));
 
 		int n = (int)key.size();
 

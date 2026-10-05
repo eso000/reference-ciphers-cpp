@@ -359,6 +359,9 @@ int main()
 
 	printf("== standard key schedule (non-aligned key lengths) ==\n");
 	{
+		/* The published set_key vectors above already pin the 1, 2 and
+		   3-byte schedules, so these round trips only need to confirm the
+		   non-word-aligned path still runs both ways. */
 		Blowfish c, d;
 		std::vector<uint8_t> kb = hexDecode("AABBCC");
 		c.generateKeys(kb);
@@ -396,7 +399,34 @@ int main()
 		try { c.generateKeys(std::vector<uint8_t>(57, 0xAB)); }
 		catch (std::invalid_argument &) { threw = true; }
 		CHECK(threw, "57-byte key rejected");
-	}
+
+		/* 1 through 56 bytes are all valid; the published set_key vectors
+		   cover the short end. Every length in that range is exercised here,
+		   because the lower bound is easy to tighten by accident and doing so
+		   would quietly drop three of those vectors. */
+		const size_t accepted[] = {1, 2, 3, 4, 5, 6, 7, 8, 16, 24, 32, 48, 55, 56};
+		for (size_t n : accepted)
+		{
+			threw = false;
+			try { c.generateKeys(std::vector<uint8_t>(n, 0xAB)); }
+			catch (std::invalid_argument &) { threw = true; }
+			char name[96];
+			snprintf(name, sizeof(name), "%zu-byte key accepted", n);
+			CHECK(!threw, name);
+		}
+
+		const size_t tooLong[] = {57, 64, 128};
+		for (size_t n : tooLong)
+		{
+			threw = false;
+			try { c.generateKeys(std::vector<uint8_t>(n, 0xAB)); }
+			catch (std::invalid_argument &) { threw = true; }
+			char name[96];
+			snprintf(name, sizeof(name), "%zu-byte key rejected (maximum is 56)", n);
+			CHECK(threw, name);
+		}
+
+		}
 
 	printf("\n%d test(s) failed\n", g_fails);
 	return g_fails ? 1 : 0;

@@ -2,6 +2,7 @@
 #include <math.h>
 #include <vector>
 #include <string>
+#include <stdexcept>
 #include <iostream>
 #include <algorithm>
 
@@ -210,18 +211,14 @@ AES::AES()
 
 
 	void AES::generateKeys(std::string key){
-		int target = 64;
-		if ((int)key.size() <= 32)
-			target = 32;
-		else if ((int)key.size() <= 48)
-			target = 48;
-		int m = target - (int)key.size();
-		if (m > 0)
-			key.append(m, '0');
-		if ((int)key.size() > 64)
-			key = key.substr(0,64);
- 
-		
+		/* AES takes a 128, 192 or 256-bit key, i.e. 32, 48 or 64 hex
+		   characters. This used to round the length up to the next of those
+		   sizes and pad with '0', so a 33-character key silently became a
+		   valid AES-192 key containing a '0' the caller never wrote, and
+		   anything past 64 characters was truncated. Reject instead. */
+		if (key.size() != 32 && key.size() != 48 && key.size() != 64)
+			throw std::invalid_argument("AES key must be 16, 24 or 32 bytes, got " + std::to_string(key.size() / 2));
+
 		int N = key.length()/8;
 		int R = 1;
 		if (N == 4)
