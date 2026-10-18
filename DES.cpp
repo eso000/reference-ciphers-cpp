@@ -27,7 +27,7 @@ DES::DES(bool useAlt) : use_alt(useAlt)
 
 
 
-#define rotr28(xr,times) (((xr << times)|(xr >> 28-times)))&0xFFFFFFF
+#define rotl28(xr, times) ((((xr) << (times)) | ((xr) >> (28 - (times)))) & 0xFFFFFFF)
 
 	#define F(x,i) temp = permutate(x.w, ExpentionPerm,32)^Subkeys[i];\
 				   if (use_alt)\
@@ -141,8 +141,8 @@ uint64_t DES::fp_perm_alt(uint64_t block)
 			if ((i + 1 ==  1) || (i + 1 ==  2)|| (i + 1 ==  9)||(i + 1 ==  16)){
 				shift = 1;
 			}
-			leftKey = rotr28(leftKey, shift);
-			rightKey = rotr28(rightKey, shift);
+			leftKey = rotl28(leftKey, shift);
+			rightKey = rotl28(rightKey, shift);
 			Subkeys.push_back(permutate( (leftKey<<28)| rightKey,keyperm2, 28*2));
 		}
 	}

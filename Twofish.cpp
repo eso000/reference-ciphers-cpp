@@ -32,11 +32,11 @@ Twofish::Twofish()
 
 #define PHT(ax, bx) aph = ax; ax =(ax+bx); bx=(aph+(bx<<1));
 
-#define rotl4(xr) (((xr>>1)|(xr<< 3))&0xf)
+#define rotr4(xr) ((((xr) >> 1) | ((xr) << 3)) & 0xf)
 
-#define rotr(xr,times) (((xr << times)|(xr >> 32-times)))
+#define rotl(xr, times) (((xr) << (times)) | ((xr) >> (32 - (times))))
 
-#define rotl(xr,times) (((xr >> times)|(xr << 32-times)))
+#define rotr(xr, times) (((xr) >> (times)) | ((xr) << (32 - (times))))
 
 
 
@@ -69,23 +69,23 @@ Twofish::Twofish()
 #define g(hword) hword = Sbox0[byte0(hword)]^ Sbox1[byte1(hword)]^Sbox2[byte2(hword)]^ Sbox3[byte3(hword)];
 						     
 
-#define round(i, l0,l1,r0,r1, nl0,nl1) nl0 = l0; nl1 = rotr(l1,8);\
+#define round(i, l0,l1,r0,r1, nl0,nl1) nl0 = l0; nl1 = rotl(l1,8);\
 						    			  g(nl0)\
 						      			  g(nl1)\
 						      			  PHT(nl0,nl1)\
 						      			  nl0 += Subkeys[2*i+8];\
 						      			  nl1 += Subkeys[2*i+9];\
-						      			  nl0 = rotl((nl0^r0),1);\
-						      			  nl1 ^= rotr(r1,1);
+						      			  nl0 = rotr((nl0^r0),1);\
+						      			  nl1 ^= rotl(r1,1);
 
-#define invround(i, l0,l1,r0,r1, nl0,nl1) nl0 = l0; nl1 = rotr(l1,8);\
+#define invround(i, l0,l1,r0,r1, nl0,nl1) nl0 = l0; nl1 = rotl(l1,8);\
 						    			  g(nl0)\
 						      			  g(nl1)\
 						      			  PHT(nl0,nl1)\
 						      			  nl0 += Subkeys[2*i+8];\
 						      			  nl1 += Subkeys[2*i+9];\
-						      			  nl0 ^= rotr(r0,1);\
-						      			  nl1 = rotl((nl1^r1),1);
+						      			  nl0 ^= rotl(r0,1);\
+						      			  nl1 = rotr((nl1^r1),1);
 
 
 
@@ -225,10 +225,10 @@ Twofish::Twofish()
 					h128(b0,&M_odd[0]);
 					break;
 			}
-			b0 = rotr(b0,8);
+			b0 = rotl(b0,8);
 			PHT(a0,b0)	
 			Subkeys.push_back(a0);
-			b0 = rotr(b0,9);
+			b0 = rotl(b0,9);
 			Subkeys.push_back(b0);	 
 		}
 	}
