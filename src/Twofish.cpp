@@ -4,6 +4,7 @@
 #include "block/Twofish.h"
 #include <iterator>
 #include "Twofish_data.h"
+#include "force_inline.h"
 
 Twofish::Twofish()
 {
@@ -24,71 +25,112 @@ Twofish::Twofish()
 
 
 
-#define byte0(x) (uint8_t)(x>>24)
-#define byte1(x) (uint8_t)(x>>16)
-#define byte2(x) (uint8_t)(x>>8)
-#define byte3(x) (uint8_t)x
+FORCE_INLINE uint8_t byte0(uint32_t x) { return (uint8_t)(x >> 24); }
+FORCE_INLINE uint8_t byte1(uint32_t x) { return (uint8_t)(x >> 16); }
+FORCE_INLINE uint8_t byte2(uint32_t x) { return (uint8_t)(x >> 8); }
+FORCE_INLINE uint8_t byte3(uint32_t x) { return (uint8_t)x; }
 
+FORCE_INLINE uint32_t rotl(uint32_t x, int n)
+{
+	return (x << n) | (x >> (32 - n));
+}
 
-#define PHT(ax, bx) aph = ax; ax =(ax+bx); bx=(aph+(bx<<1));
+FORCE_INLINE uint32_t rotr(uint32_t x, int n)
+{
+	return (x >> n) | (x << (32 - n));
+}
 
-#define rotr4(xr) ((((xr) >> 1) | ((xr) << 3)) & 0xf)
+FORCE_INLINE uint32_t load32_le(const uint8_t *p)
+{
+	return (uint32_t)p[0] | ((uint32_t)p[1] << 8) | ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24);
+}
 
-#define rotl(xr, times) (((xr) << (times)) | ((xr) >> (32 - (times))))
+FORCE_INLINE void store32_le(uint8_t *p, uint32_t w)
+{
+	p[0] = byte3(w);
+	p[1] = byte2(w);
+	p[2] = byte1(w);
+	p[3] = byte0(w);
+}
 
-#define rotr(xr, times) (((xr) >> (times)) | ((xr) << (32 - (times))))
+/* Pseudo-Hadamard transform: a' = a + b, b' = a + 2b. */
+FORCE_INLINE void twofish_pht(uint32_t *a, uint32_t *b)
+{
+	uint32_t t = *a;
+	*a = *a + *b;
+	*b = t + (*b << 1);
+}
 
+/* Multiplies the four bytes of t by the MDS matrix. */
+FORCE_INLINE uint32_t twofish_mds(const Twofish &tf, uint32_t t)
+{
+	return (uint32_t)(byte3(t) ^ tf.MDSEF[byte2(t)] ^ tf.MDS5B[byte1(t)] ^ tf.MDS5B[byte0(t)])
+		| ((uint32_t)(tf.MDS5B[byte3(t)] ^ tf.MDSEF[byte2(t)] ^ tf.MDSEF[byte1(t)] ^ byte0(t)) << 8)
+		| ((uint32_t)(tf.MDSEF[byte3(t)] ^ tf.MDS5B[byte2(t)] ^ byte1(t) ^ tf.MDSEF[byte0(t)]) << 16)
+		| ((uint32_t)(tf.MDSEF[byte3(t)] ^ byte2(t) ^ tf.MDSEF[byte1(t)] ^ tf.MDS5B[byte0(t)]) << 24);
+}
 
+/* The h function for 128, 192 and 256-bit keys: the q-permutation chain for
+   that key length, followed by the MDS multiply. Only the key schedule uses
+   it; encryption goes through the precomputed Sbox0..3 tables instead. */
+static uint32_t twofish_h128(uint32_t x, const uint8_t *k, const Twofish &tf)
+{
+	uint32_t t = (uint32_t)tf.q1[tf.q0[tf.q0[byte0(x)] ^ k[0]] ^ k[4]]
+		| ((uint32_t)tf.q0[tf.q0[tf.q1[byte1(x)] ^ k[1]] ^ k[5]] << 8)
+		| ((uint32_t)tf.q1[tf.q1[tf.q0[byte2(x)] ^ k[2]] ^ k[6]] << 16)
+		| ((uint32_t)tf.q0[tf.q1[tf.q1[byte3(x)] ^ k[3]] ^ k[7]] << 24);
+	return twofish_mds(tf, t);
+}
 
-#define MDSmult(hword) hword = ((byte3(temp)^MDSEF[byte2(temp)]^MDS5B[byte1(temp)]^MDS5B[byte0(temp)]))|\
-		  		  	 			 ((uint32_t)(MDS5B[byte3(temp)]^MDSEF[byte2(temp)]^MDSEF[byte1(temp)]^byte0(temp))<<8)|\
-		  		  				 ((uint32_t)(MDSEF[byte3(temp)]^MDS5B[byte2(temp)]^byte1(temp)^MDSEF[byte0(temp)])<<16)|\
-		  		  				 ((uint32_t)(MDSEF[byte3(temp)]^byte2(temp)^MDSEF[byte1(temp)]^MDS5B[byte0(temp)])<<24);
+static uint32_t twofish_h192(uint32_t x, const uint8_t *k, const Twofish &tf)
+{
+	uint32_t t = (uint32_t)tf.q1[tf.q0[tf.q0[tf.q1[byte0(x)] ^ k[0]] ^ k[4]] ^ k[8]]
+		| ((uint32_t)tf.q0[tf.q0[tf.q1[tf.q1[byte1(x)] ^ k[1]] ^ k[5]] ^ k[9]] << 8)
+		| ((uint32_t)tf.q1[tf.q1[tf.q0[tf.q0[byte2(x)] ^ k[2]] ^ k[6]] ^ k[10]] << 16)
+		| ((uint32_t)tf.q0[tf.q1[tf.q1[tf.q0[byte3(x)] ^ k[3]] ^ k[7]] ^ k[11]] << 24);
+	return twofish_mds(tf, t);
+}
 
-#define h128(hword, hkey)  temp = ( q1[q0[q0[byte0(hword)]^*(hkey)]^*(hkey+4)])|\
-						    		((uint32_t)(q0[q0[q1[byte1(hword)]^*(hkey+1)]^*(hkey+5)])<<8)|\
-						    		((uint32_t)(q1[q1[q0[byte2(hword)]^*(hkey+2)]^*(hkey+6)])<<16)|\
-						    		((uint32_t)(q0[q1[q1[byte3(hword)]^*(hkey+3)]^*(hkey+7)])<<24);\
-						    		MDSmult(hword)
+static uint32_t twofish_h256(uint32_t x, const uint8_t *k, const Twofish &tf)
+{
+	uint32_t t = (uint32_t)tf.q1[tf.q0[tf.q0[tf.q1[tf.q1[byte0(x)] ^ k[0]] ^ k[4]] ^ k[8]] ^ k[12]]
+		| ((uint32_t)tf.q0[tf.q0[tf.q1[tf.q1[tf.q0[byte1(x)] ^ k[1]] ^ k[5]] ^ k[9]] ^ k[13]] << 8)
+		| ((uint32_t)tf.q1[tf.q1[tf.q0[tf.q0[tf.q0[byte2(x)] ^ k[2]] ^ k[6]] ^ k[10]] ^ k[14]] << 16)
+		| ((uint32_t)tf.q0[tf.q1[tf.q1[tf.q0[tf.q1[byte3(x)] ^ k[3]] ^ k[7]] ^ k[11]] ^ k[15]] << 24);
+	return twofish_mds(tf, t);
+}
 
+/* The g function, through the key-dependent S-boxes built by the schedule. */
+FORCE_INLINE uint32_t twofish_g(const Twofish *tf, uint32_t x)
+{
+	return tf->Sbox0[byte0(x)] ^ tf->Sbox1[byte1(x)] ^ tf->Sbox2[byte2(x)] ^ tf->Sbox3[byte3(x)];
+}
 
-#define h196(hword, hkey) temp =  ( q1[q0[q0[q1[byte0(hword)]^*(hkey)]^*(hkey+4)]^*(hkey+8)])|\
-						    		((uint32_t)(q0[q0[q1[q1[byte1(hword)]^*(hkey+1)]^*(hkey+5)]^*(hkey+9)])<<8)|\
-						    		((uint32_t)(q1[q1[q0[q0[byte2(hword)]^*(hkey+2)]^*(hkey+6)]^*(hkey+10)])<<16)|\
-						    		((uint32_t)(q0[q1[q1[q0[byte3(hword)]^*(hkey+3)]^*(hkey+7)]^*(hkey+11)])<<24);\
-						    		MDSmult(hword)
+/* One encryption round: F of the half (l0, l1) is mixed with (r0, r1) into
+   (nl0, nl1). Calling it with the halves rotated on alternate rounds gives the
+   Feistel swap without moving any data. */
+FORCE_INLINE void twofish_round(int i, uint32_t l0, uint32_t l1, uint32_t r0, uint32_t r1, uint32_t &nl0, uint32_t &nl1, const Twofish *tf)
+{
+	uint32_t t0 = twofish_g(tf, l0);
+	uint32_t t1 = twofish_g(tf, rotl(l1, 8));
+	twofish_pht(&t0, &t1);
+	t0 += tf->Subkeys[2*i+8];
+	t1 += tf->Subkeys[2*i+9];
+	nl0 = rotr(t0 ^ r0, 1);
+	nl1 = t1 ^ rotl(r1, 1);
+}
 
-
-#define h256(hword, hkey) temp =  ( q1[q0[q0[q1[q1[byte0(hword)]^*(hkey)]^*(hkey+4)]^*(hkey+8)]^*(hkey+12)])|\
-						    		((uint32_t)(q0[q0[q1[q1[q0[byte1(hword)]^*(hkey+1)]^*(hkey+5)]^*(hkey+9)]^*(hkey+13)])<<8)|\
-						    		((uint32_t)(q1[q1[q0[q0[q0[byte2(hword)]^*(hkey+2)]^*(hkey+6)]^*(hkey+10)]^*(hkey+14)])<<16)|\
-						    		((uint32_t)(q0[q1[q1[q0[q1[byte3(hword)]^*(hkey+3)]^*(hkey+7)]^*(hkey+11)]^*(hkey+15)])<<24);\
-						    		MDSmult(hword)
-
-
-#define g(hword) hword = Sbox0[byte0(hword)]^ Sbox1[byte1(hword)]^Sbox2[byte2(hword)]^ Sbox3[byte3(hword)];
-						     
-
-#define round(i, l0,l1,r0,r1, nl0,nl1) nl0 = l0; nl1 = rotl(l1,8);\
-						    			  g(nl0)\
-						      			  g(nl1)\
-						      			  PHT(nl0,nl1)\
-						      			  nl0 += Subkeys[2*i+8];\
-						      			  nl1 += Subkeys[2*i+9];\
-						      			  nl0 = rotr((nl0^r0),1);\
-						      			  nl1 ^= rotl(r1,1);
-
-#define invround(i, l0,l1,r0,r1, nl0,nl1) nl0 = l0; nl1 = rotl(l1,8);\
-						    			  g(nl0)\
-						      			  g(nl1)\
-						      			  PHT(nl0,nl1)\
-						      			  nl0 += Subkeys[2*i+8];\
-						      			  nl1 += Subkeys[2*i+9];\
-						      			  nl0 ^= rotl(r0,1);\
-						      			  nl1 = rotr((nl1^r1),1);
-
-
-
+/* The inverse round: the same F, with the rotations of the mixing step undone. */
+FORCE_INLINE void twofish_invRound(int i, uint32_t l0, uint32_t l1, uint32_t r0, uint32_t r1, uint32_t &nl0, uint32_t &nl1, const Twofish *tf)
+{
+	uint32_t t0 = twofish_g(tf, l0);
+	uint32_t t1 = twofish_g(tf, rotl(l1, 8));
+	twofish_pht(&t0, &t1);
+	t0 += tf->Subkeys[2*i+8];
+	t1 += tf->Subkeys[2*i+9];
+	nl0 = t0 ^ rotl(r0, 1);
+	nl1 = rotr(t1 ^ r1, 1);
+}
 	uint32_t Twofish::multgf(uint32_t a,uint32_t b,uint32_t pol) const {
 		if (b == 0 )
 			return 0L;
@@ -206,27 +248,27 @@ Twofish::Twofish()
 		
 				
 		uint32_t rho = 16843009;//2**24+2**16+2**8+1
-		uint32_t a0, b0, a1, b1, temp, aph;
+		uint32_t a0, b0;
 		Subkeys.clear();
 		for (int i = 0 ; i < 20; ++i){
 			a0 = 2*i*rho;
 			b0 = (2*i+1)*rho;
 			switch (n/8){
 				case 4:
-					h256(a0,&M_even[0]);
-					h256(b0,&M_odd[0]);
+					a0 = twofish_h256(a0, &M_even[0], *this);
+					b0 = twofish_h256(b0, &M_odd[0], *this);
 					break;
 				case 3:
-					h196(a0,&M_even[0]);
-					h196(b0,&M_odd[0]);
+					a0 = twofish_h192(a0, &M_even[0], *this);
+					b0 = twofish_h192(b0, &M_odd[0], *this);
 					break;
 				case 2:
-					h128(a0,&M_even[0]);
-					h128(b0,&M_odd[0]);
+					a0 = twofish_h128(a0, &M_even[0], *this);
+					b0 = twofish_h128(b0, &M_odd[0], *this);
 					break;
 			}
 			b0 = rotl(b0,8);
-			PHT(a0,b0)	
+			twofish_pht(&a0, &b0);
 			Subkeys.push_back(a0);
 			b0 = rotl(b0,9);
 			Subkeys.push_back(b0);	 
@@ -235,80 +277,70 @@ Twofish::Twofish()
 
 	void Twofish::encrypt_block(uint8_t *lb0,uint8_t *lb1,uint8_t *rb0,uint8_t *rb1) const
 	{
-		uint32_t left0, left1, right0, right1,newl0, newl1, temp, aph;
-		
-		left0 = (*lb0)| ((uint32_t)*(lb0+1)<<8)|((uint32_t)*(lb0+2)<<16)| ((uint32_t)*(lb0+3)<<24);
-		left1 = (*lb1)| ((uint32_t)*(lb1+1)<<8)|((uint32_t)*(lb1+2)<<16)| ((uint32_t)*(lb1+3)<<24);
-		right0 = (*rb0)| ((uint32_t)*(rb0+1)<<8)|((uint32_t)*(rb0+2)<<16)| ((uint32_t)*(rb0+3)<<24);
-		right1 = (*rb1)| ((uint32_t)*(rb1+1)<<8)|((uint32_t)*(rb1+2)<<16)| ((uint32_t)*(rb1+3)<<24);
-		
+		uint32_t left0 = load32_le(lb0) ^ Subkeys[0];
+		uint32_t left1 = load32_le(lb1) ^ Subkeys[1];
+		uint32_t right0 = load32_le(rb0) ^ Subkeys[2];
+		uint32_t right1 = load32_le(rb1) ^ Subkeys[3];
+		uint32_t newl0, newl1;
 
-		left0 ^= Subkeys[0]; left1 ^= Subkeys[1];
-		right0 ^= Subkeys[2]; right1 ^= Subkeys[3];
-
-		round( 0, left0, left1, right0, right1, newl0, newl1)
-		round( 1, newl0, newl1, left0, left1, right0, right1)
-		round( 2, right0, right1, newl0, newl1, left0, left1)
-		round( 3, left0, left1, right0, right1, newl0, newl1)
-		round( 4, newl0, newl1, left0, left1, right0, right1)
-		round( 5, right0, right1, newl0, newl1, left0, left1)
-		round( 6, left0, left1, right0, right1, newl0, newl1)
-		round( 7, newl0, newl1, left0, left1, right0, right1)
-		round( 8, right0, right1, newl0, newl1, left0, left1)
-		round( 9, left0, left1, right0, right1, newl0, newl1)
-		round(10, newl0, newl1, left0, left1, right0, right1)
-		round(11, right0, right1, newl0, newl1, left0, left1)
-		round(12, left0, left1, right0, right1, newl0, newl1)
-		round(13, newl0, newl1, left0, left1, right0, right1)
-		round(14, right0, right1, newl0, newl1, left0, left1)
-		round(15, left0, left1, right0, right1, newl0, newl1)
+		twofish_round( 0, left0, left1, right0, right1, newl0, newl1, this);
+		twofish_round( 1, newl0, newl1, left0, left1, right0, right1, this);
+		twofish_round( 2, right0, right1, newl0, newl1, left0, left1, this);
+		twofish_round( 3, left0, left1, right0, right1, newl0, newl1, this);
+		twofish_round( 4, newl0, newl1, left0, left1, right0, right1, this);
+		twofish_round( 5, right0, right1, newl0, newl1, left0, left1, this);
+		twofish_round( 6, left0, left1, right0, right1, newl0, newl1, this);
+		twofish_round( 7, newl0, newl1, left0, left1, right0, right1, this);
+		twofish_round( 8, right0, right1, newl0, newl1, left0, left1, this);
+		twofish_round( 9, left0, left1, right0, right1, newl0, newl1, this);
+		twofish_round(10, newl0, newl1, left0, left1, right0, right1, this);
+		twofish_round(11, right0, right1, newl0, newl1, left0, left1, this);
+		twofish_round(12, left0, left1, right0, right1, newl0, newl1, this);
+		twofish_round(13, newl0, newl1, left0, left1, right0, right1, this);
+		twofish_round(14, right0, right1, newl0, newl1, left0, left1, this);
+		twofish_round(15, left0, left1, right0, right1, newl0, newl1, this);
 
 		left0 ^= Subkeys[4]; left1 ^= Subkeys[5];
 		newl0 ^= Subkeys[6]; newl1 ^= Subkeys[7];
-		
-		*lb0 = byte3(left0); *(lb0+1) = byte2(left0);*(lb0+2) = byte1(left0); *(lb0+3) = byte0(left0);
-		*lb1 = byte3(left1); *(lb1+1) = byte2(left1);*(lb1+2) = byte1(left1); *(lb1+3) = byte0(left1);
-		*rb0 = byte3(newl0); *(rb0+1) = byte2(newl0);*(rb0+2) = byte1(newl0); *(rb0+3) = byte0(newl0);
-		*rb1 = byte3(newl1); *(rb1+1) = byte2(newl1);*(rb1+2) = byte1(newl1); *(rb1+3) = byte0(newl1);
+
+		store32_le(lb0, left0);
+		store32_le(lb1, left1);
+		store32_le(rb0, newl0);
+		store32_le(rb1, newl1);
 	}
 
 	void Twofish::decrypt_block(uint8_t *lb0,uint8_t *lb1,uint8_t *rb0,uint8_t *rb1) const
 	{
-		uint32_t left0, left1, right0, right1,newl0, newl1, temp, aph;
-		
-left0 = (*lb0)| ((uint32_t)*(lb0+1)<<8)|((uint32_t)*(lb0+2)<<16)| ((uint32_t)*(lb0+3)<<24);
-		left1 = (*lb1)| ((uint32_t)*(lb1+1)<<8)|((uint32_t)*(lb1+2)<<16)| ((uint32_t)*(lb1+3)<<24);
-		right0 = (*rb0)| ((uint32_t)*(rb0+1)<<8)|((uint32_t)*(rb0+2)<<16)| ((uint32_t)*(rb0+3)<<24);
-		right1 = (*rb1)| ((uint32_t)*(rb1+1)<<8)|((uint32_t)*(rb1+2)<<16)| ((uint32_t)*(rb1+3)<<24);
-		
+		uint32_t left0 = load32_le(lb0) ^ Subkeys[4];
+		uint32_t left1 = load32_le(lb1) ^ Subkeys[5];
+		uint32_t right0 = load32_le(rb0) ^ Subkeys[6];
+		uint32_t right1 = load32_le(rb1) ^ Subkeys[7];
+		uint32_t newl0, newl1;
 
-		left0 ^= Subkeys[4]; left1 ^= Subkeys[5];
-		right0 ^= Subkeys[6]; right1 ^= Subkeys[7];
-		
-		invround(15, left0, left1, right0, right1, newl0, newl1)
-		invround(14, newl0, newl1, left0, left1, right0, right1)
-		invround(13, right0, right1, newl0, newl1, left0, left1)
-		invround(12, left0, left1, right0, right1, newl0, newl1)
-		invround(11, newl0, newl1, left0, left1, right0, right1)
-		invround(10, right0, right1, newl0, newl1, left0, left1)
-		invround( 9, left0, left1, right0, right1, newl0, newl1)
-		invround( 8, newl0, newl1, left0, left1, right0, right1)
-		invround( 7, right0, right1, newl0, newl1, left0, left1)
-		invround( 6, left0, left1, right0, right1, newl0, newl1)
-		invround( 5, newl0, newl1, left0, left1, right0, right1)
-		invround( 4, right0, right1, newl0, newl1, left0, left1)
-		invround( 3, left0, left1, right0, right1, newl0, newl1)
-		invround( 2, newl0, newl1, left0, left1, right0, right1)
-		invround( 1, right0, right1, newl0, newl1, left0, left1)
-		invround( 0, left0, left1, right0, right1, newl0, newl1)
+		twofish_invRound(15, left0, left1, right0, right1, newl0, newl1, this);
+		twofish_invRound(14, newl0, newl1, left0, left1, right0, right1, this);
+		twofish_invRound(13, right0, right1, newl0, newl1, left0, left1, this);
+		twofish_invRound(12, left0, left1, right0, right1, newl0, newl1, this);
+		twofish_invRound(11, newl0, newl1, left0, left1, right0, right1, this);
+		twofish_invRound(10, right0, right1, newl0, newl1, left0, left1, this);
+		twofish_invRound( 9, left0, left1, right0, right1, newl0, newl1, this);
+		twofish_invRound( 8, newl0, newl1, left0, left1, right0, right1, this);
+		twofish_invRound( 7, right0, right1, newl0, newl1, left0, left1, this);
+		twofish_invRound( 6, left0, left1, right0, right1, newl0, newl1, this);
+		twofish_invRound( 5, newl0, newl1, left0, left1, right0, right1, this);
+		twofish_invRound( 4, right0, right1, newl0, newl1, left0, left1, this);
+		twofish_invRound( 3, left0, left1, right0, right1, newl0, newl1, this);
+		twofish_invRound( 2, newl0, newl1, left0, left1, right0, right1, this);
+		twofish_invRound( 1, right0, right1, newl0, newl1, left0, left1, this);
+		twofish_invRound( 0, left0, left1, right0, right1, newl0, newl1, this);
 
 		left0 ^= Subkeys[0]; left1 ^= Subkeys[1];
 		newl0 ^= Subkeys[2]; newl1 ^= Subkeys[3];
-		
-		*lb0 = byte3(left0); *(lb0+1) = byte2(left0);*(lb0+2) = byte1(left0); *(lb0+3) = byte0(left0);
-		*lb1 = byte3(left1); *(lb1+1) = byte2(left1);*(lb1+2) = byte1(left1); *(lb1+3) = byte0(left1);
-		*rb0 = byte3(newl0); *(rb0+1) = byte2(newl0);*(rb0+2) = byte1(newl0); *(rb0+3) = byte0(newl0);
-		*rb1 = byte3(newl1); *(rb1+1) = byte2(newl1);*(rb1+2) = byte1(newl1); *(rb1+3) = byte0(newl1);
+
+		store32_le(lb0, left0);
+		store32_le(lb1, left1);
+		store32_le(rb0, newl0);
+		store32_le(rb1, newl1);
 	}
 
 	
