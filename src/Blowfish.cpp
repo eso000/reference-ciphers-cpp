@@ -3,7 +3,7 @@
 #include <fstream>
 #include <stdexcept>
 
-#include "Blowfish.h"
+#include "block/Blowfish.h"
 #include <iterator>
 #include "Blowfish_data.h"
 

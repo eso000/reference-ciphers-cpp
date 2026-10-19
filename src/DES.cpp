@@ -3,7 +3,7 @@
 #include <fstream>
 #include <stdexcept>
 
-#include "DES.h"
+#include "block/DES.h"
 #include <iterator>
 #include "DES_data.h"
 

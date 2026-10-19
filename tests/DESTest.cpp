@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <stdexcept>
 
-#include "DES.h"
+#include "block/DES.h"
 
 static int g_fails = 0;
 

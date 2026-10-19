@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <vector>
 
-#include "BlockCipher.h"
+#include "block/BlockCipher.h"
 
 class Blowfish : public BlockCipher{
 public:

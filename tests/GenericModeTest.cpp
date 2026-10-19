@@ -4,11 +4,11 @@
 #include <cstring>
 #include <cstdint>
 
-#include "AES.h"
-#include "Blowfish.h"
-#include "Twofish.h"
-#include "DES.h"
-#include "Serpent.h"
+#include "block/AES.h"
+#include "block/Blowfish.h"
+#include "block/Twofish.h"
+#include "block/DES.h"
+#include "block/Serpent.h"
 
 static int g_fails = 0;
 

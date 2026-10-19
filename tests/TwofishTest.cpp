@@ -6,7 +6,7 @@
 #include <iterator>
 #include <stdexcept>
 
-#include "Twofish.h"
+#include "block/Twofish.h"
 
 static int g_fails = 0;
 

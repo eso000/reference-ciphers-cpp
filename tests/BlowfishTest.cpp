@@ -6,7 +6,7 @@
 #include <iterator>
 #include <stdexcept>
 
-#include "Blowfish.h"
+#include "block/Blowfish.h"
 
 static int g_fails = 0;
 

@@ -2,7 +2,7 @@
 #include <fstream>
 #include <iterator>
 
-#include "BlockCipher.h"
+#include "block/BlockCipher.h"
 
 static void xorBlock(uint8_t *dst, const uint8_t *src, int n)
 {

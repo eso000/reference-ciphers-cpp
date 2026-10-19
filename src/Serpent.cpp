@@ -3,7 +3,7 @@
 #include <stdexcept>
 #include <fstream>
 
-#include "Serpent.h"
+#include "block/Serpent.h"
 #include <iterator>
 #include "Serpent_data.h"
 

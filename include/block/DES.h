@@ -5,7 +5,7 @@
 #include <vector>
 #include <string>
 
-#include "BlockCipher.h"
+#include "block/BlockCipher.h"
 
 class DES : public BlockCipher{
 public:

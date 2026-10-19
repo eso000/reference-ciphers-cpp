@@ -1,7 +1,7 @@
 #include <vector>
 #include <stdexcept>
 
-#include "Twofish.h"
+#include "block/Twofish.h"
 #include <iterator>
 #include "Twofish_data.h"
 

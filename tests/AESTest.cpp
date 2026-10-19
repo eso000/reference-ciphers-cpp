@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <stdexcept>
 
-#include "AES.h"
+#include "block/AES.h"
 
 static int g_fails = 0;
 
