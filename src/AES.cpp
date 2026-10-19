@@ -1,5 +1,4 @@
 
-#include <math.h>
 #include <vector>
 #include <string>
 #include <stdexcept>
@@ -15,6 +14,12 @@
 #include "block/AES.h"
 #include <iterator>
 #include "AES_data.h"
+#include "force_inline.h"
+
+FORCE_INLINE uint8_t byte0(uint32_t x) { return (uint8_t)(x >> 24); }
+FORCE_INLINE uint8_t byte1(uint32_t x) { return (uint8_t)(x >> 16); }
+FORCE_INLINE uint8_t byte2(uint32_t x) { return (uint8_t)(x >> 8); }
+FORCE_INLINE uint8_t byte3(uint32_t x) { return (uint8_t)x; }
 
 AES::AES()
 {
@@ -39,152 +44,132 @@ AES::AES()
 
 
 
-#define rotl4(arr1) t = arr1[0];\
-			arr1[0] = arr1[1];\
-			arr1[1] = arr1[2];\
-			arr1[2] = arr1[3];\
-			arr1[3] = t;
+/* The key schedule works on four-byte columns: rotate, SubBytes and XOR. */
+FORCE_INLINE void aes_rotl4(uint8_t *a)
+{
+	uint8_t t = a[0];
+	a[0] = a[1];
+	a[1] = a[2];
+	a[2] = a[3];
+	a[3] = t;
+}
 
+FORCE_INLINE void aes_xor4(uint8_t *a, const uint8_t *b)
+{
+	a[0] ^= b[0];
+	a[1] ^= b[1];
+	a[2] ^= b[2];
+	a[3] ^= b[3];
+}
 
-#define xor4(arr1, arr2) arr1[0] ^= arr2[0];\
-	arr1[1] ^= arr2[1];\
-	arr1[2] ^= arr2[2];\
-	arr1[3] ^= arr2[3];
+FORCE_INLINE void aes_xor4(std::vector<uint8_t> &a, const std::vector<uint8_t> &b)
+{
+	aes_xor4(a.data(), b.data());
+}
 
-#define xor16(arr1, arr2) arr1[0] ^= *arr2;\
-	arr1[1] ^= *(arr2+1);\
-	arr1[2] ^= *(arr2+2);\
-	arr1[3] ^= *(arr2+3);\
-	arr1[4] ^= *(arr2+4);\
-	arr1[5] ^= *(arr2+5);\
-	arr1[6] ^= *(arr2+6);\
-	arr1[7] ^= *(arr2+7);\
-	arr1[8] ^= *(arr2+8);\
-	arr1[9] ^= *(arr2+9);\
-	arr1[10] ^= *(arr2+10);\
-	arr1[11] ^= *(arr2+11);\
-	arr1[12] ^= *(arr2+12);\
-	arr1[13] ^= *(arr2+13);\
-	arr1[14] ^= *(arr2+14);\
-	arr1[15] ^= *(arr2+15);
+FORCE_INLINE void aes_subBytes4(uint8_t *a, const std::vector<uint8_t> &sbox)
+{
+	a[0] = sbox[a[0]];
+	a[1] = sbox[a[1]];
+	a[2] = sbox[a[2]];
+	a[3] = sbox[a[3]];
+}
 
+/* Loads the block into columns and applies the first round key. */
+FORCE_INLINE void aes_firstRound(uint32_t cols[4], const uint8_t *p, const AES &a, int k)
+{
+	cols[0] = (((uint32_t)p[ 0]<<24)|((uint32_t)p[ 1]<<16)|((uint32_t)p[ 2]<<8)|(uint32_t)p[ 3]) ^ a.Subkeys[k + 0];
+	cols[1] = (((uint32_t)p[ 4]<<24)|((uint32_t)p[ 5]<<16)|((uint32_t)p[ 6]<<8)|(uint32_t)p[ 7]) ^ a.Subkeys[k + 1];
+	cols[2] = (((uint32_t)p[ 8]<<24)|((uint32_t)p[ 9]<<16)|((uint32_t)p[10]<<8)|(uint32_t)p[11]) ^ a.Subkeys[k + 2];
+	cols[3] = (((uint32_t)p[12]<<24)|((uint32_t)p[13]<<16)|((uint32_t)p[14]<<8)|(uint32_t)p[15]) ^ a.Subkeys[k + 3];
+}
 
-#define byte0(x) (uint8_t)(x>>24)
-#define byte1(x) (uint8_t)(x>>16)
-#define byte2(x) (uint8_t)(x>>8)
-#define byte3(x) (uint8_t)x
+/* SubBytes, ShiftRows, MixColumns and AddRoundKey through the T-tables. */
+FORCE_INLINE void aes_round(const uint32_t col1[4], uint32_t col2[4], const AES &a, int i)
+{
+	col2[0] = a.MixRowCol0[byte0(col1[0])]^a.MixRowCol1[byte1(col1[1])]^a.MixRowCol2[byte2(col1[2])]^a.MixRowCol3[byte3(col1[3])]^a.Subkeys[4*i];
+	col2[1] = a.MixRowCol0[byte0(col1[1])]^a.MixRowCol1[byte1(col1[2])]^a.MixRowCol2[byte2(col1[3])]^a.MixRowCol3[byte3(col1[0])]^a.Subkeys[4*i+1];
+	col2[2] = a.MixRowCol0[byte0(col1[2])]^a.MixRowCol1[byte1(col1[3])]^a.MixRowCol2[byte2(col1[0])]^a.MixRowCol3[byte3(col1[1])]^a.Subkeys[4*i+2];
+	col2[3] = a.MixRowCol0[byte0(col1[3])]^a.MixRowCol1[byte1(col1[0])]^a.MixRowCol2[byte2(col1[1])]^a.MixRowCol3[byte3(col1[2])]^a.Subkeys[4*i+3];
+}
 
+/* The last encryption step: SubBytes, ShiftRows, AddRoundKey and store. */
+FORCE_INLINE void aes_lastRound(const uint32_t cols[4], uint8_t *p, const AES &a, int i)
+{
+	p[ 0] = a.SBoxes[byte0(cols[0])] ^ (uint8_t)(a.Subkeys[i]>>24);
+	p[ 1] = a.SBoxes[byte1(cols[1])] ^ (uint8_t)(a.Subkeys[i]>>16);
+	p[ 2] = a.SBoxes[byte2(cols[2])] ^ (uint8_t)(a.Subkeys[i]>>8);
+	p[ 3] = a.SBoxes[byte3(cols[3])] ^ (uint8_t)a.Subkeys[i];
 
-#define SubBites4(arr1) arr1[0] = SBoxes[arr1[0]];\
-						arr1[1] = SBoxes[arr1[1]];\
-						arr1[2] = SBoxes[arr1[2]];\
-						arr1[3] = SBoxes[arr1[3]];
+	p[ 4] = a.SBoxes[byte0(cols[1])] ^ (uint8_t)(a.Subkeys[i+1]>>24);
+	p[ 5] = a.SBoxes[byte1(cols[2])] ^ (uint8_t)(a.Subkeys[i+1]>>16);
+	p[ 6] = a.SBoxes[byte2(cols[3])] ^ (uint8_t)(a.Subkeys[i+1]>>8);
+	p[ 7] = a.SBoxes[byte3(cols[0])] ^ (uint8_t)a.Subkeys[i+1];
 
-#define SB(id) SBoxes[(id)]
+	p[ 8] = a.SBoxes[byte0(cols[2])] ^ (uint8_t)(a.Subkeys[i+2]>>24);
+	p[ 9] = a.SBoxes[byte1(cols[3])] ^ (uint8_t)(a.Subkeys[i+2]>>16);
+	p[10] = a.SBoxes[byte2(cols[0])] ^ (uint8_t)(a.Subkeys[i+2]>>8);
+	p[11] = a.SBoxes[byte3(cols[1])] ^ (uint8_t)a.Subkeys[i+2];
 
-#define iSB(id) InvSBoxes[(id)]
+	p[12] = a.SBoxes[byte0(cols[3])] ^ (uint8_t)(a.Subkeys[i+3]>>24);
+	p[13] = a.SBoxes[byte1(cols[0])] ^ (uint8_t)(a.Subkeys[i+3]>>16);
+	p[14] = a.SBoxes[byte2(cols[1])] ^ (uint8_t)(a.Subkeys[i+3]>>8);
+	p[15] = a.SBoxes[byte3(cols[2])] ^ (uint8_t)a.Subkeys[i+3];
+}
 
+/* The last decryption step: AddRoundKey and store. */
+FORCE_INLINE void aes_lastInvRound(const uint32_t cols[4], uint8_t *p, const AES &a, int i)
+{
+	p[ 0] = byte0(cols[0]) ^ (uint8_t)(a.Subkeys[i]>>24);
+	p[ 1] = byte1(cols[0]) ^ (uint8_t)(a.Subkeys[i]>>16);
+	p[ 2] = byte2(cols[0]) ^ (uint8_t)(a.Subkeys[i]>>8);
+	p[ 3] = byte3(cols[0]) ^ (uint8_t)a.Subkeys[i];
 
-#define SubBites(arr1)  arr1[0] = SBoxes[arr1[0]];\
-						arr1[1] = SBoxes[arr1[1]];\
-						arr1[2] = SBoxes[arr1[2]];\
-						arr1[3] = SBoxes[arr1[3]];\
-						arr1[4] = SBoxes[arr1[4]];\
-						arr1[5] = SBoxes[arr1[5]];\
-						arr1[6] = SBoxes[arr1[6]];\
-						arr1[7] = SBoxes[arr1[7]];\
-						arr1[8] = SBoxes[arr1[8]];\
-						arr1[9] = SBoxes[arr1[9]];\
-						arr1[10] = SBoxes[arr1[10]];\
-						arr1[11] = SBoxes[arr1[11]];\
-						arr1[12] = SBoxes[arr1[12]];\
-						arr1[13] = SBoxes[arr1[13]];\
-						arr1[14] = SBoxes[arr1[14]];\
-						arr1[15] = SBoxes[arr1[15]];
+	p[ 4] = byte0(cols[1]) ^ (uint8_t)(a.Subkeys[i+1]>>24);
+	p[ 5] = byte1(cols[1]) ^ (uint8_t)(a.Subkeys[i+1]>>16);
+	p[ 6] = byte2(cols[1]) ^ (uint8_t)(a.Subkeys[i+1]>>8);
+	p[ 7] = byte3(cols[1]) ^ (uint8_t)a.Subkeys[i+1];
 
-#define ShiftRows(arr1) temp[0] = arr1[1];\
-						temp[1] = arr1[2]; temp[2] = arr1[6];\
-						temp[3] = arr1[15];\
-						arr1[1] = arr1[5];\
-						arr1[5] = arr1[9];\
-						arr1[9] = arr1[13];\
-						arr1[13] = temp[0];\
-						arr1[2] = arr1[10];\
-						arr1[6] = arr1[14];\
-						arr1[10] = temp[1];\
-						arr1[14] = temp[2];\
-						arr1[15] = arr1[11];\
-						arr1[11] = arr1[7];\
-						arr1[7] = arr1[3];\
-						arr1[3] = temp[3];
+	p[ 8] = byte0(cols[2]) ^ (uint8_t)(a.Subkeys[i+2]>>24);
+	p[ 9] = byte1(cols[2]) ^ (uint8_t)(a.Subkeys[i+2]>>16);
+	p[10] = byte2(cols[2]) ^ (uint8_t)(a.Subkeys[i+2]>>8);
+	p[11] = byte3(cols[2]) ^ (uint8_t)a.Subkeys[i+2];
 
-#define invShiftRowsSB(cols1, cols2) cols2[0] = ((uint32_t)InvSBoxes[byte0(cols1[0])]<<24)|(InvSBoxes[byte1(cols1[3])]<<16)|(InvSBoxes[byte2(cols1[2])]<<8)|InvSBoxes[byte3(cols1[1])];\
-								   	 cols2[1] = ((uint32_t)InvSBoxes[byte0(cols1[1])]<<24)|(InvSBoxes[byte1(cols1[0])]<<16)|(InvSBoxes[byte2(cols1[3])]<<8)|InvSBoxes[byte3(cols1[2])];\
-								   	 cols2[2] = ((uint32_t)InvSBoxes[byte0(cols1[2])]<<24)|(InvSBoxes[byte1(cols1[1])]<<16)|(InvSBoxes[byte2(cols1[0])]<<8)|InvSBoxes[byte3(cols1[3])];\
-								   	 cols2[3] = ((uint32_t)InvSBoxes[byte0(cols1[3])]<<24)|(InvSBoxes[byte1(cols1[2])]<<16)|(InvSBoxes[byte2(cols1[1])]<<8)|InvSBoxes[byte3(cols1[0])];
+	p[12] = byte0(cols[3]) ^ (uint8_t)(a.Subkeys[i+3]>>24);
+	p[13] = byte1(cols[3]) ^ (uint8_t)(a.Subkeys[i+3]>>16);
+	p[14] = byte2(cols[3]) ^ (uint8_t)(a.Subkeys[i+3]>>8);
+	p[15] = byte3(cols[3]) ^ (uint8_t)a.Subkeys[i+3];
+}
 
+/* InvMixColumns, through the inverse T-tables. */
+FORCE_INLINE void aes_invMixRows(const uint32_t coln1[4], uint32_t coln2[4], const AES &a)
+{
+	coln2[0] = a.invMixRowCol0[byte0(coln1[0])]^a.invMixRowCol1[byte1(coln1[0])]^a.invMixRowCol2[byte2(coln1[0])]^a.invMixRowCol3[byte3(coln1[0])];
+	coln2[1] = a.invMixRowCol0[byte0(coln1[1])]^a.invMixRowCol1[byte1(coln1[1])]^a.invMixRowCol2[byte2(coln1[1])]^a.invMixRowCol3[byte3(coln1[1])];
+	coln2[2] = a.invMixRowCol0[byte0(coln1[2])]^a.invMixRowCol1[byte1(coln1[2])]^a.invMixRowCol2[byte2(coln1[2])]^a.invMixRowCol3[byte3(coln1[2])];
+	coln2[3] = a.invMixRowCol0[byte0(coln1[3])]^a.invMixRowCol1[byte1(coln1[3])]^a.invMixRowCol2[byte2(coln1[3])]^a.invMixRowCol3[byte3(coln1[3])];
+}
 
-#define firstround(cols, p1, k) cols[0] = (((uint32_t)*p1<<24)|((uint32_t)*(p1+ 1)<<16)|((uint32_t)*(p1+ 2)<<8)|(uint32_t)*(p1+ 3)) ^ Subkeys[k + 0];\
-			cols[1] = (((uint32_t)*(p1+ 4)<<24)|((uint32_t)*(p1+ 5)<<16)|((uint32_t)*(p1+ 6)<<8)|(uint32_t)*(p1+ 7)) ^ Subkeys[k + 1];\
-			cols[2] = (((uint32_t)*(p1+ 8)<<24)|((uint32_t)*(p1+ 9)<<16)|((uint32_t)*(p1+10)<<8)|(uint32_t)*(p1+ 11)) ^ Subkeys[k + 2];\
-			cols[3] = (((uint32_t)*(p1+12)<<24)|((uint32_t)*(p1+13)<<16)|((uint32_t)*(p1+14)<<8)|(uint32_t)*(p1+ 15)) ^ Subkeys[k + 3];\
-		
+/* InvShiftRows and InvSubBytes in one pass. */
+FORCE_INLINE void aes_invShiftRowsSB(const uint32_t cols1[4], uint32_t cols2[4], const AES &a)
+{
+	cols2[0] = ((uint32_t)a.InvSBoxes[byte0(cols1[0])]<<24)|(a.InvSBoxes[byte1(cols1[3])]<<16)|(a.InvSBoxes[byte2(cols1[2])]<<8)|a.InvSBoxes[byte3(cols1[1])];
+	cols2[1] = ((uint32_t)a.InvSBoxes[byte0(cols1[1])]<<24)|(a.InvSBoxes[byte1(cols1[0])]<<16)|(a.InvSBoxes[byte2(cols1[3])]<<8)|a.InvSBoxes[byte3(cols1[2])];
+	cols2[2] = ((uint32_t)a.InvSBoxes[byte0(cols1[2])]<<24)|(a.InvSBoxes[byte1(cols1[1])]<<16)|(a.InvSBoxes[byte2(cols1[0])]<<8)|a.InvSBoxes[byte3(cols1[3])];
+	cols2[3] = ((uint32_t)a.InvSBoxes[byte0(cols1[3])]<<24)|(a.InvSBoxes[byte1(cols1[2])]<<16)|(a.InvSBoxes[byte2(cols1[1])]<<8)|a.InvSBoxes[byte3(cols1[0])];
+}
 
-#define lastround(cols, p1, i ) *p1 	= SB(byte0(cols[0])) ^ Subkeys[i]>>24;\
-		*(p1+ 1) = SB(byte1(cols[1]))^(uint8_t)(Subkeys[i]>>16);\
-		*(p1+ 2) = SB(byte2(cols[2]))^(uint8_t)(Subkeys[i]>>8);\
-		*(p1+ 3) = SB(byte3(cols[3]))^(uint8_t)Subkeys[i];\
-\
-		*(p1+ 4) = SB(byte0(cols[1]))^Subkeys[i+1]>>24;\
-		*(p1+ 5) = SB(byte1(cols[2]))^(uint8_t)(Subkeys[i+1]>>16);\
-		*(p1+ 6) = SB(byte2(cols[3]))^(uint8_t)(Subkeys[i+1]>>8);\
-		*(p1+ 7) = SB(byte3(cols[0]))^(uint8_t)Subkeys[i+1];\
-\
-		*(p1+ 8) = SB(byte0(cols[2]))^Subkeys[i+2]>>24;\
-		*(p1+ 9) = SB(byte1(cols[3]))^(uint8_t)(Subkeys[i+2]>>16);\
-		*(p1+10) = SB(byte2(cols[0]))^(uint8_t)(Subkeys[i+2]>>8);\
-		*(p1+11) = SB(byte3(cols[1]))^(uint8_t)Subkeys[i+2];\
-\
-		*(p1+12) = SB(byte0(cols[3]))^Subkeys[i+3]>>24;\
-		*(p1+13) = SB(byte1(cols[0]))^(uint8_t)(Subkeys[i+3]>>16);\
-		*(p1+14) = SB(byte2(cols[1]))^(uint8_t)(Subkeys[i+3]>>8);\
-		*(p1+15) = SB(byte3(cols[2]))^(uint8_t)Subkeys[i+3];
-
-#define lastInvround(cols, p1, i ) *p1 	= (byte0(cols[0])) ^ (Subkeys[i]>>24);\
-		*(p1+ 1) = (byte1(cols[0]))^(uint8_t)(Subkeys[i]>>16);\
-		*(p1+ 2) = (byte2(cols[0]))^(uint8_t)(Subkeys[i]>>8);\
-		*(p1+ 3) = (byte3(cols[0]))^(uint8_t)Subkeys[i];\
-\
-		*(p1+ 4) = (byte0(cols[1]))^Subkeys[i+1]>>24;\
-		*(p1+ 5) = (byte1(cols[1]))^(uint8_t)(Subkeys[i+1]>>16);\
-		*(p1+ 6) = (byte2(cols[1]))^(uint8_t)(Subkeys[i+1]>>8);\
-		*(p1+ 7) = (byte3(cols[1]))^(uint8_t)Subkeys[i+1];\
-\
-		*(p1+ 8) = (byte0(cols[2]))^Subkeys[i+2]>>24;\
-		*(p1+ 9) = (byte1(cols[2]))^(uint8_t)(Subkeys[i+2]>>16);\
-		*(p1+10) = (byte2(cols[2]))^(uint8_t)(Subkeys[i+2]>>8);\
-		*(p1+11) = (byte3(cols[2]))^(uint8_t)Subkeys[i+2];\
-\
-		*(p1+12) = (byte0(cols[3]))^Subkeys[i+3]>>24;\
-		*(p1+13) = (byte1(cols[3]))^(uint8_t)(Subkeys[i+3]>>16);\
-		*(p1+14) = (byte2(cols[3]))^(uint8_t)(Subkeys[i+3]>>8);\
-		*(p1+15) = (byte3(cols[3]))^(uint8_t)Subkeys[i+3];
-
-#define invMixRows(coln1, coln2) coln2[0] = invMixRowCol0[byte0(coln1[0])]^invMixRowCol1[byte1(coln1[0])]^invMixRowCol2[byte2(coln1[0])]^invMixRowCol3[byte3(coln1[0])];\
-								 coln2[1] = invMixRowCol0[byte0(coln1[1])]^invMixRowCol1[byte1(coln1[1])]^invMixRowCol2[byte2(coln1[1])]^invMixRowCol3[byte3(coln1[1])];\
-								 coln2[2] = invMixRowCol0[byte0(coln1[2])]^invMixRowCol1[byte1(coln1[2])]^invMixRowCol2[byte2(coln1[2])]^invMixRowCol3[byte3(coln1[2])];\
-								 coln2[3] = invMixRowCol0[byte0(coln1[3])]^invMixRowCol1[byte1(coln1[3])]^invMixRowCol2[byte2(coln1[3])]^invMixRowCol3[byte3(coln1[3])]; 
-
-
-#define round(col1, col2, i) col2[0] = MixRowCol0[byte0(col1[0])]^MixRowCol1[byte1(col1[1])]^MixRowCol2[byte2(col1[2])]^MixRowCol3[byte3(col1[3])]^Subkeys[4*i] ;\
-							 col2[1] = MixRowCol0[byte0(col1[1])]^MixRowCol1[byte1(col1[2])]^MixRowCol2[byte2(col1[3])]^MixRowCol3[byte3(col1[0])]^Subkeys[4*i+1];\
-							 col2[2] = MixRowCol0[byte0(col1[2])]^MixRowCol1[byte1(col1[3])]^MixRowCol2[byte2(col1[0])]^MixRowCol3[byte3(col1[1])]^Subkeys[4*i+2];\
-							 col2[3] = MixRowCol0[byte0(col1[3])]^MixRowCol1[byte1(col1[0])]^MixRowCol2[byte2(col1[1])]^MixRowCol3[byte3(col1[2])]^Subkeys[4*i+3];
-
-#define   invround(col1, col2, i) col1[0] ^= Subkeys[4*i];col1[1] ^= Subkeys[4*i+1];\
-								  col1[0+2] ^= Subkeys[4*i+2]; col1[3] ^= Subkeys[4*i+3];\
-								  invMixRows(col1, col2)\
-								  invShiftRowsSB(col2, col1)  
+/* One inverse round, in place on col1: AddRoundKey, InvMixColumns, then
+   InvShiftRows and InvSubBytes. col2 is scratch. */
+FORCE_INLINE void aes_invRound(uint32_t col1[4], uint32_t col2[4], const AES &a, int i)
+{
+	col1[0] ^= a.Subkeys[4*i];
+	col1[1] ^= a.Subkeys[4*i+1];
+	col1[2] ^= a.Subkeys[4*i+2];
+	col1[3] ^= a.Subkeys[4*i+3];
+	aes_invMixRows(col1, col2, a);
+	aes_invShiftRowsSB(col2, col1, a);
+}
 
 
 
@@ -237,8 +222,7 @@ AES::AES()
 		}
 			
 		uint8_t rcon[4] = {1, 0, 0, 0};
-		std::vector<uint8_t> T, temp;	
-		int t;
+		std::vector<uint8_t> temp;
 		for (int x = N; x<4*R; ++x){
 			temp = W[x-1];
 			if (x % N == 0){
@@ -251,18 +235,18 @@ AES::AES()
 							rcon[0] = rcon[0]%256;
 					}
 				}
-				rotl4(temp);
-				SubBites4(temp)
-				xor4(temp,rcon)
-				xor4(temp,W[x - N])
+				aes_rotl4(temp.data());
+				aes_subBytes4(temp.data(), SBoxes);
+				aes_xor4(temp.data(), rcon);
+				aes_xor4(temp, W[x - N]);
 				W.push_back(temp);
 			}else if (N > 6 && x % N == 4){
-				SubBites4(temp)
-				xor4(temp,W[x - N])
+				aes_subBytes4(temp.data(), SBoxes);
+				aes_xor4(temp, W[x - N]);
 				W.push_back(temp);
 			}
 			else{
-				xor4(temp,W[x - N])
+				aes_xor4(temp, W[x - N]);
 				W.push_back(temp);
 			}
 		}
@@ -281,19 +265,17 @@ AES::AES()
 		uint32_t columnA[4];
 		uint32_t columnB[4];
 		
-		firstround(columnA, p,0)
-		round(columnA,columnB,1)
-		round(columnB,columnA,2)
-		round(columnA,columnB,3)
-		round(columnB,columnA,4)
-		round(columnA,columnB,5)
-		round(columnB,columnA,6)
-		round(columnA,columnB,7)
-		round(columnB,columnA,8)
-		round(columnA,columnB,9)
-
-		lastround(columnB, p, 40)
-
+		aes_firstRound(columnA, p, *this, 0);
+		aes_round(columnA, columnB, *this, 1);
+		aes_round(columnB, columnA, *this, 2);
+		aes_round(columnA, columnB, *this, 3);
+		aes_round(columnB, columnA, *this, 4);
+		aes_round(columnA, columnB, *this, 5);
+		aes_round(columnB, columnA, *this, 6);
+		aes_round(columnA, columnB, *this, 7);
+		aes_round(columnB, columnA, *this, 8);
+		aes_round(columnA, columnB, *this, 9);
+		aes_lastRound(columnB, p, *this, 40);
 	}
 
 	void AES::encrypt_block192(uint8_t *p) const
@@ -303,20 +285,19 @@ AES::AES()
 		uint32_t columnA[4];
 		uint32_t columnB[4];
 
-		firstround(columnA, p, 0)
-		round(columnA,columnB, 1)
-		round(columnB,columnA, 2)
-		round(columnA,columnB, 3)
-		round(columnB,columnA, 4)
-		round(columnA,columnB, 5)
-		round(columnB,columnA, 6)
-		round(columnA,columnB, 7)
-		round(columnB,columnA, 8)
-		round(columnA,columnB, 9)
-		round(columnB,columnA,10)
-		round(columnA,columnB,11)
-
-		lastround(columnB, p, 48)
+		aes_firstRound(columnA, p, *this, 0);
+		aes_round(columnA, columnB, *this, 1);
+		aes_round(columnB, columnA, *this, 2);
+		aes_round(columnA, columnB, *this, 3);
+		aes_round(columnB, columnA, *this, 4);
+		aes_round(columnA, columnB, *this, 5);
+		aes_round(columnB, columnA, *this, 6);
+		aes_round(columnA, columnB, *this, 7);
+		aes_round(columnB, columnA, *this, 8);
+		aes_round(columnA, columnB, *this, 9);
+		aes_round(columnB, columnA, *this, 10);
+		aes_round(columnA, columnB, *this, 11);
+		aes_lastRound(columnB, p, *this, 48);
 	}
 
 	void AES::encrypt_block256(uint8_t *p) const
@@ -327,22 +308,21 @@ AES::AES()
 		uint32_t columnA[4];
 		uint32_t columnB[4];
 
-		firstround(columnA, p, 0)
-		round(columnA,columnB, 1)
-		round(columnB,columnA, 2)
-		round(columnA,columnB, 3)
-		round(columnB,columnA, 4)
-		round(columnA,columnB, 5)
-		round(columnB,columnA, 6)
-		round(columnA,columnB, 7)
-		round(columnB,columnA, 8)
-		round(columnA,columnB, 9)
-		round(columnB,columnA,10)
-		round(columnA,columnB,11)
-		round(columnB,columnA,12)
-		round(columnA,columnB,13)
-
-		lastround(columnB, p, 56)
+		aes_firstRound(columnA, p, *this, 0);
+		aes_round(columnA, columnB, *this, 1);
+		aes_round(columnB, columnA, *this, 2);
+		aes_round(columnA, columnB, *this, 3);
+		aes_round(columnB, columnA, *this, 4);
+		aes_round(columnA, columnB, *this, 5);
+		aes_round(columnB, columnA, *this, 6);
+		aes_round(columnA, columnB, *this, 7);
+		aes_round(columnB, columnA, *this, 8);
+		aes_round(columnA, columnB, *this, 9);
+		aes_round(columnB, columnA, *this, 10);
+		aes_round(columnA, columnB, *this, 11);
+		aes_round(columnB, columnA, *this, 12);
+		aes_round(columnA, columnB, *this, 13);
+		aes_lastRound(columnB, p, *this, 56);
 	}
 
 	void AES::decrypt_block128(uint8_t *p) const
@@ -351,20 +331,18 @@ AES::AES()
 		uint32_t columnA[4];
 		uint32_t columnB[4];
 		
-		firstround(columnB, p, 40)
-		invShiftRowsSB(columnB, columnA)
-
-		invround(columnA,columnB, 9)
-		invround(columnA,columnB, 8)
-		invround(columnA,columnB, 7)
-		invround(columnA,columnB, 6)
-		invround(columnA,columnB, 5)
-		invround(columnA,columnB, 4)
-		invround(columnA,columnB, 3)
-		invround(columnA,columnB, 2)
-		invround(columnA,columnB, 1)
-
-		lastInvround(columnA, p, 0)		
+		aes_firstRound(columnB, p, *this, 40);
+		aes_invShiftRowsSB(columnB, columnA, *this);
+		aes_invRound(columnA, columnB, *this, 9);
+		aes_invRound(columnA, columnB, *this, 8);
+		aes_invRound(columnA, columnB, *this, 7);
+		aes_invRound(columnA, columnB, *this, 6);
+		aes_invRound(columnA, columnB, *this, 5);
+		aes_invRound(columnA, columnB, *this, 4);
+		aes_invRound(columnA, columnB, *this, 3);
+		aes_invRound(columnA, columnB, *this, 2);
+		aes_invRound(columnA, columnB, *this, 1);
+		aes_lastInvRound(columnA, p, *this, 0);
 	}
 
 
@@ -374,22 +352,20 @@ AES::AES()
 		uint32_t columnA[4];
 		uint32_t columnB[4];
 		
-		firstround(columnB, p, 48)
-		invShiftRowsSB(columnB, columnA)
-
-		invround(columnA,columnB,11)
-		invround(columnA,columnB,10)
-		invround(columnA,columnB, 9)
-		invround(columnA,columnB, 8)
-		invround(columnA,columnB, 7)
-		invround(columnA,columnB, 6)
-		invround(columnA,columnB, 5)
-		invround(columnA,columnB, 4)
-		invround(columnA,columnB, 3)
-		invround(columnA,columnB, 2)
-		invround(columnA,columnB, 1)
-
-		lastInvround(columnA, p, 0)		
+		aes_firstRound(columnB, p, *this, 48);
+		aes_invShiftRowsSB(columnB, columnA, *this);
+		aes_invRound(columnA, columnB, *this, 11);
+		aes_invRound(columnA, columnB, *this, 10);
+		aes_invRound(columnA, columnB, *this, 9);
+		aes_invRound(columnA, columnB, *this, 8);
+		aes_invRound(columnA, columnB, *this, 7);
+		aes_invRound(columnA, columnB, *this, 6);
+		aes_invRound(columnA, columnB, *this, 5);
+		aes_invRound(columnA, columnB, *this, 4);
+		aes_invRound(columnA, columnB, *this, 3);
+		aes_invRound(columnA, columnB, *this, 2);
+		aes_invRound(columnA, columnB, *this, 1);
+		aes_lastInvRound(columnA, p, *this, 0);
 	}
 
 void AES::decrypt_block256(uint8_t *p) const
@@ -398,25 +374,22 @@ void AES::decrypt_block256(uint8_t *p) const
 		uint32_t columnA[4];
 		uint32_t columnB[4];
 		
-		firstround(columnB, p, 56)
-		invShiftRowsSB(columnB, columnA)
-
-		invround(columnA,columnB,13)
-		invround(columnA,columnB,12)
-		invround(columnA,columnB,11)
-		invround(columnA,columnB,10)
-		invround(columnA,columnB, 9)
-		invround(columnA,columnB, 8)
-		invround(columnA,columnB, 7)
-		invround(columnA,columnB, 6)
-		invround(columnA,columnB, 5)
-		invround(columnA,columnB, 4)
-		invround(columnA,columnB, 3)
-		invround(columnA,columnB, 2)
-		invround(columnA,columnB, 1)
-
-		lastInvround(columnA, p, 0)		
-
+		aes_firstRound(columnB, p, *this, 56);
+		aes_invShiftRowsSB(columnB, columnA, *this);
+		aes_invRound(columnA, columnB, *this, 13);
+		aes_invRound(columnA, columnB, *this, 12);
+		aes_invRound(columnA, columnB, *this, 11);
+		aes_invRound(columnA, columnB, *this, 10);
+		aes_invRound(columnA, columnB, *this, 9);
+		aes_invRound(columnA, columnB, *this, 8);
+		aes_invRound(columnA, columnB, *this, 7);
+		aes_invRound(columnA, columnB, *this, 6);
+		aes_invRound(columnA, columnB, *this, 5);
+		aes_invRound(columnA, columnB, *this, 4);
+		aes_invRound(columnA, columnB, *this, 3);
+		aes_invRound(columnA, columnB, *this, 2);
+		aes_invRound(columnA, columnB, *this, 1);
+		aes_lastInvRound(columnA, p, *this, 0);
 	}
 
 
