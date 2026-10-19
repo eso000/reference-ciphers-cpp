@@ -16,11 +16,6 @@
 #include "AES_data.h"
 #include "force_inline.h"
 
-FORCE_INLINE uint8_t byte0(uint32_t x) { return (uint8_t)(x >> 24); }
-FORCE_INLINE uint8_t byte1(uint32_t x) { return (uint8_t)(x >> 16); }
-FORCE_INLINE uint8_t byte2(uint32_t x) { return (uint8_t)(x >> 8); }
-FORCE_INLINE uint8_t byte3(uint32_t x) { return (uint8_t)x; }
-
 AES::AES()
 {
 	SBoxes.assign(std::begin(SBoxes_data), std::end(SBoxes_data));
@@ -87,76 +82,76 @@ FORCE_INLINE void aes_firstRound(uint32_t cols[4], const uint8_t *p, const AES &
 /* SubBytes, ShiftRows, MixColumns and AddRoundKey through the T-tables. */
 FORCE_INLINE void aes_round(const uint32_t col1[4], uint32_t col2[4], const AES &a, int i)
 {
-	col2[0] = a.MixRowCol0[byte0(col1[0])]^a.MixRowCol1[byte1(col1[1])]^a.MixRowCol2[byte2(col1[2])]^a.MixRowCol3[byte3(col1[3])]^a.Subkeys[4*i];
-	col2[1] = a.MixRowCol0[byte0(col1[1])]^a.MixRowCol1[byte1(col1[2])]^a.MixRowCol2[byte2(col1[3])]^a.MixRowCol3[byte3(col1[0])]^a.Subkeys[4*i+1];
-	col2[2] = a.MixRowCol0[byte0(col1[2])]^a.MixRowCol1[byte1(col1[3])]^a.MixRowCol2[byte2(col1[0])]^a.MixRowCol3[byte3(col1[1])]^a.Subkeys[4*i+2];
-	col2[3] = a.MixRowCol0[byte0(col1[3])]^a.MixRowCol1[byte1(col1[0])]^a.MixRowCol2[byte2(col1[1])]^a.MixRowCol3[byte3(col1[2])]^a.Subkeys[4*i+3];
+	col2[0] = a.MixRowCol0[BlockCipher::byte0(col1[0])]^a.MixRowCol1[BlockCipher::byte1(col1[1])]^a.MixRowCol2[BlockCipher::byte2(col1[2])]^a.MixRowCol3[BlockCipher::byte3(col1[3])]^a.Subkeys[4*i];
+	col2[1] = a.MixRowCol0[BlockCipher::byte0(col1[1])]^a.MixRowCol1[BlockCipher::byte1(col1[2])]^a.MixRowCol2[BlockCipher::byte2(col1[3])]^a.MixRowCol3[BlockCipher::byte3(col1[0])]^a.Subkeys[4*i+1];
+	col2[2] = a.MixRowCol0[BlockCipher::byte0(col1[2])]^a.MixRowCol1[BlockCipher::byte1(col1[3])]^a.MixRowCol2[BlockCipher::byte2(col1[0])]^a.MixRowCol3[BlockCipher::byte3(col1[1])]^a.Subkeys[4*i+2];
+	col2[3] = a.MixRowCol0[BlockCipher::byte0(col1[3])]^a.MixRowCol1[BlockCipher::byte1(col1[0])]^a.MixRowCol2[BlockCipher::byte2(col1[1])]^a.MixRowCol3[BlockCipher::byte3(col1[2])]^a.Subkeys[4*i+3];
 }
 
 /* The last encryption step: SubBytes, ShiftRows, AddRoundKey and store. */
 FORCE_INLINE void aes_lastRound(const uint32_t cols[4], uint8_t *p, const AES &a, int i)
 {
-	p[ 0] = a.SBoxes[byte0(cols[0])] ^ (uint8_t)(a.Subkeys[i]>>24);
-	p[ 1] = a.SBoxes[byte1(cols[1])] ^ (uint8_t)(a.Subkeys[i]>>16);
-	p[ 2] = a.SBoxes[byte2(cols[2])] ^ (uint8_t)(a.Subkeys[i]>>8);
-	p[ 3] = a.SBoxes[byte3(cols[3])] ^ (uint8_t)a.Subkeys[i];
+	p[ 0] = a.SBoxes[BlockCipher::byte0(cols[0])] ^ (uint8_t)(a.Subkeys[i]>>24);
+	p[ 1] = a.SBoxes[BlockCipher::byte1(cols[1])] ^ (uint8_t)(a.Subkeys[i]>>16);
+	p[ 2] = a.SBoxes[BlockCipher::byte2(cols[2])] ^ (uint8_t)(a.Subkeys[i]>>8);
+	p[ 3] = a.SBoxes[BlockCipher::byte3(cols[3])] ^ (uint8_t)a.Subkeys[i];
 
-	p[ 4] = a.SBoxes[byte0(cols[1])] ^ (uint8_t)(a.Subkeys[i+1]>>24);
-	p[ 5] = a.SBoxes[byte1(cols[2])] ^ (uint8_t)(a.Subkeys[i+1]>>16);
-	p[ 6] = a.SBoxes[byte2(cols[3])] ^ (uint8_t)(a.Subkeys[i+1]>>8);
-	p[ 7] = a.SBoxes[byte3(cols[0])] ^ (uint8_t)a.Subkeys[i+1];
+	p[ 4] = a.SBoxes[BlockCipher::byte0(cols[1])] ^ (uint8_t)(a.Subkeys[i+1]>>24);
+	p[ 5] = a.SBoxes[BlockCipher::byte1(cols[2])] ^ (uint8_t)(a.Subkeys[i+1]>>16);
+	p[ 6] = a.SBoxes[BlockCipher::byte2(cols[3])] ^ (uint8_t)(a.Subkeys[i+1]>>8);
+	p[ 7] = a.SBoxes[BlockCipher::byte3(cols[0])] ^ (uint8_t)a.Subkeys[i+1];
 
-	p[ 8] = a.SBoxes[byte0(cols[2])] ^ (uint8_t)(a.Subkeys[i+2]>>24);
-	p[ 9] = a.SBoxes[byte1(cols[3])] ^ (uint8_t)(a.Subkeys[i+2]>>16);
-	p[10] = a.SBoxes[byte2(cols[0])] ^ (uint8_t)(a.Subkeys[i+2]>>8);
-	p[11] = a.SBoxes[byte3(cols[1])] ^ (uint8_t)a.Subkeys[i+2];
+	p[ 8] = a.SBoxes[BlockCipher::byte0(cols[2])] ^ (uint8_t)(a.Subkeys[i+2]>>24);
+	p[ 9] = a.SBoxes[BlockCipher::byte1(cols[3])] ^ (uint8_t)(a.Subkeys[i+2]>>16);
+	p[10] = a.SBoxes[BlockCipher::byte2(cols[0])] ^ (uint8_t)(a.Subkeys[i+2]>>8);
+	p[11] = a.SBoxes[BlockCipher::byte3(cols[1])] ^ (uint8_t)a.Subkeys[i+2];
 
-	p[12] = a.SBoxes[byte0(cols[3])] ^ (uint8_t)(a.Subkeys[i+3]>>24);
-	p[13] = a.SBoxes[byte1(cols[0])] ^ (uint8_t)(a.Subkeys[i+3]>>16);
-	p[14] = a.SBoxes[byte2(cols[1])] ^ (uint8_t)(a.Subkeys[i+3]>>8);
-	p[15] = a.SBoxes[byte3(cols[2])] ^ (uint8_t)a.Subkeys[i+3];
+	p[12] = a.SBoxes[BlockCipher::byte0(cols[3])] ^ (uint8_t)(a.Subkeys[i+3]>>24);
+	p[13] = a.SBoxes[BlockCipher::byte1(cols[0])] ^ (uint8_t)(a.Subkeys[i+3]>>16);
+	p[14] = a.SBoxes[BlockCipher::byte2(cols[1])] ^ (uint8_t)(a.Subkeys[i+3]>>8);
+	p[15] = a.SBoxes[BlockCipher::byte3(cols[2])] ^ (uint8_t)a.Subkeys[i+3];
 }
 
 /* The last decryption step: AddRoundKey and store. */
 FORCE_INLINE void aes_lastInvRound(const uint32_t cols[4], uint8_t *p, const AES &a, int i)
 {
-	p[ 0] = byte0(cols[0]) ^ (uint8_t)(a.Subkeys[i]>>24);
-	p[ 1] = byte1(cols[0]) ^ (uint8_t)(a.Subkeys[i]>>16);
-	p[ 2] = byte2(cols[0]) ^ (uint8_t)(a.Subkeys[i]>>8);
-	p[ 3] = byte3(cols[0]) ^ (uint8_t)a.Subkeys[i];
+	p[ 0] = BlockCipher::byte0(cols[0]) ^ (uint8_t)(a.Subkeys[i]>>24);
+	p[ 1] = BlockCipher::byte1(cols[0]) ^ (uint8_t)(a.Subkeys[i]>>16);
+	p[ 2] = BlockCipher::byte2(cols[0]) ^ (uint8_t)(a.Subkeys[i]>>8);
+	p[ 3] = BlockCipher::byte3(cols[0]) ^ (uint8_t)a.Subkeys[i];
 
-	p[ 4] = byte0(cols[1]) ^ (uint8_t)(a.Subkeys[i+1]>>24);
-	p[ 5] = byte1(cols[1]) ^ (uint8_t)(a.Subkeys[i+1]>>16);
-	p[ 6] = byte2(cols[1]) ^ (uint8_t)(a.Subkeys[i+1]>>8);
-	p[ 7] = byte3(cols[1]) ^ (uint8_t)a.Subkeys[i+1];
+	p[ 4] = BlockCipher::byte0(cols[1]) ^ (uint8_t)(a.Subkeys[i+1]>>24);
+	p[ 5] = BlockCipher::byte1(cols[1]) ^ (uint8_t)(a.Subkeys[i+1]>>16);
+	p[ 6] = BlockCipher::byte2(cols[1]) ^ (uint8_t)(a.Subkeys[i+1]>>8);
+	p[ 7] = BlockCipher::byte3(cols[1]) ^ (uint8_t)a.Subkeys[i+1];
 
-	p[ 8] = byte0(cols[2]) ^ (uint8_t)(a.Subkeys[i+2]>>24);
-	p[ 9] = byte1(cols[2]) ^ (uint8_t)(a.Subkeys[i+2]>>16);
-	p[10] = byte2(cols[2]) ^ (uint8_t)(a.Subkeys[i+2]>>8);
-	p[11] = byte3(cols[2]) ^ (uint8_t)a.Subkeys[i+2];
+	p[ 8] = BlockCipher::byte0(cols[2]) ^ (uint8_t)(a.Subkeys[i+2]>>24);
+	p[ 9] = BlockCipher::byte1(cols[2]) ^ (uint8_t)(a.Subkeys[i+2]>>16);
+	p[10] = BlockCipher::byte2(cols[2]) ^ (uint8_t)(a.Subkeys[i+2]>>8);
+	p[11] = BlockCipher::byte3(cols[2]) ^ (uint8_t)a.Subkeys[i+2];
 
-	p[12] = byte0(cols[3]) ^ (uint8_t)(a.Subkeys[i+3]>>24);
-	p[13] = byte1(cols[3]) ^ (uint8_t)(a.Subkeys[i+3]>>16);
-	p[14] = byte2(cols[3]) ^ (uint8_t)(a.Subkeys[i+3]>>8);
-	p[15] = byte3(cols[3]) ^ (uint8_t)a.Subkeys[i+3];
+	p[12] = BlockCipher::byte0(cols[3]) ^ (uint8_t)(a.Subkeys[i+3]>>24);
+	p[13] = BlockCipher::byte1(cols[3]) ^ (uint8_t)(a.Subkeys[i+3]>>16);
+	p[14] = BlockCipher::byte2(cols[3]) ^ (uint8_t)(a.Subkeys[i+3]>>8);
+	p[15] = BlockCipher::byte3(cols[3]) ^ (uint8_t)a.Subkeys[i+3];
 }
 
 /* InvMixColumns, through the inverse T-tables. */
 FORCE_INLINE void aes_invMixRows(const uint32_t coln1[4], uint32_t coln2[4], const AES &a)
 {
-	coln2[0] = a.invMixRowCol0[byte0(coln1[0])]^a.invMixRowCol1[byte1(coln1[0])]^a.invMixRowCol2[byte2(coln1[0])]^a.invMixRowCol3[byte3(coln1[0])];
-	coln2[1] = a.invMixRowCol0[byte0(coln1[1])]^a.invMixRowCol1[byte1(coln1[1])]^a.invMixRowCol2[byte2(coln1[1])]^a.invMixRowCol3[byte3(coln1[1])];
-	coln2[2] = a.invMixRowCol0[byte0(coln1[2])]^a.invMixRowCol1[byte1(coln1[2])]^a.invMixRowCol2[byte2(coln1[2])]^a.invMixRowCol3[byte3(coln1[2])];
-	coln2[3] = a.invMixRowCol0[byte0(coln1[3])]^a.invMixRowCol1[byte1(coln1[3])]^a.invMixRowCol2[byte2(coln1[3])]^a.invMixRowCol3[byte3(coln1[3])];
+	coln2[0] = a.invMixRowCol0[BlockCipher::byte0(coln1[0])]^a.invMixRowCol1[BlockCipher::byte1(coln1[0])]^a.invMixRowCol2[BlockCipher::byte2(coln1[0])]^a.invMixRowCol3[BlockCipher::byte3(coln1[0])];
+	coln2[1] = a.invMixRowCol0[BlockCipher::byte0(coln1[1])]^a.invMixRowCol1[BlockCipher::byte1(coln1[1])]^a.invMixRowCol2[BlockCipher::byte2(coln1[1])]^a.invMixRowCol3[BlockCipher::byte3(coln1[1])];
+	coln2[2] = a.invMixRowCol0[BlockCipher::byte0(coln1[2])]^a.invMixRowCol1[BlockCipher::byte1(coln1[2])]^a.invMixRowCol2[BlockCipher::byte2(coln1[2])]^a.invMixRowCol3[BlockCipher::byte3(coln1[2])];
+	coln2[3] = a.invMixRowCol0[BlockCipher::byte0(coln1[3])]^a.invMixRowCol1[BlockCipher::byte1(coln1[3])]^a.invMixRowCol2[BlockCipher::byte2(coln1[3])]^a.invMixRowCol3[BlockCipher::byte3(coln1[3])];
 }
 
 /* InvShiftRows and InvSubBytes in one pass. */
 FORCE_INLINE void aes_invShiftRowsSB(const uint32_t cols1[4], uint32_t cols2[4], const AES &a)
 {
-	cols2[0] = ((uint32_t)a.InvSBoxes[byte0(cols1[0])]<<24)|(a.InvSBoxes[byte1(cols1[3])]<<16)|(a.InvSBoxes[byte2(cols1[2])]<<8)|a.InvSBoxes[byte3(cols1[1])];
-	cols2[1] = ((uint32_t)a.InvSBoxes[byte0(cols1[1])]<<24)|(a.InvSBoxes[byte1(cols1[0])]<<16)|(a.InvSBoxes[byte2(cols1[3])]<<8)|a.InvSBoxes[byte3(cols1[2])];
-	cols2[2] = ((uint32_t)a.InvSBoxes[byte0(cols1[2])]<<24)|(a.InvSBoxes[byte1(cols1[1])]<<16)|(a.InvSBoxes[byte2(cols1[0])]<<8)|a.InvSBoxes[byte3(cols1[3])];
-	cols2[3] = ((uint32_t)a.InvSBoxes[byte0(cols1[3])]<<24)|(a.InvSBoxes[byte1(cols1[2])]<<16)|(a.InvSBoxes[byte2(cols1[1])]<<8)|a.InvSBoxes[byte3(cols1[0])];
+	cols2[0] = ((uint32_t)a.InvSBoxes[BlockCipher::byte0(cols1[0])]<<24)|(a.InvSBoxes[BlockCipher::byte1(cols1[3])]<<16)|(a.InvSBoxes[BlockCipher::byte2(cols1[2])]<<8)|a.InvSBoxes[BlockCipher::byte3(cols1[1])];
+	cols2[1] = ((uint32_t)a.InvSBoxes[BlockCipher::byte0(cols1[1])]<<24)|(a.InvSBoxes[BlockCipher::byte1(cols1[0])]<<16)|(a.InvSBoxes[BlockCipher::byte2(cols1[3])]<<8)|a.InvSBoxes[BlockCipher::byte3(cols1[2])];
+	cols2[2] = ((uint32_t)a.InvSBoxes[BlockCipher::byte0(cols1[2])]<<24)|(a.InvSBoxes[BlockCipher::byte1(cols1[1])]<<16)|(a.InvSBoxes[BlockCipher::byte2(cols1[0])]<<8)|a.InvSBoxes[BlockCipher::byte3(cols1[3])];
+	cols2[3] = ((uint32_t)a.InvSBoxes[BlockCipher::byte0(cols1[3])]<<24)|(a.InvSBoxes[BlockCipher::byte1(cols1[2])]<<16)|(a.InvSBoxes[BlockCipher::byte2(cols1[1])]<<8)|a.InvSBoxes[BlockCipher::byte3(cols1[0])];
 }
 
 /* One inverse round, in place on col1: AddRoundKey, InvMixColumns, then
