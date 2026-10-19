@@ -6,6 +6,31 @@
 #include "block/DES.h"
 #include <iterator>
 #include "DES_data.h"
+#include "force_inline.h"
+
+FORCE_INLINE uint32_t rotl28(uint32_t xr, int times)
+{
+	return ((xr << times) | (xr >> (28 - times))) & 0xFFFFFFF;
+}
+
+	uint64_t DES::feistel(uint32_t r, int i) const
+	{
+		uint64_t temp = permutate(r, ExpentionPerm, 32) ^ Subkeys[i];
+		if (use_alt)
+		{
+			return SPBox[0][(temp>>42)&0x3f] ^ SPBox[1][(temp>>36)&0x3f] ^ SPBox[2][(temp>>30)&0x3f] ^ SPBox[3][(temp>>24)&0x3f]
+			^ SPBox[4][(temp>>18)&0x3f] ^ SPBox[5][(temp>>12)&0x3f] ^ SPBox[6][(temp>>6)&0x3f] ^ SPBox[7][temp&0x3f];
+		}
+		temp = SBoxes0[temp>>42] << 28 | SBoxes1[temp>>36&0b111111] << 24 | SBoxes2[temp>>30&0b111111] << 20
+		| SBoxes3[temp>>24&0b111111] << 16 | SBoxes4[temp>>18&0b111111] << 12 | SBoxes5[temp>>12&0b111111] << 8
+		| SBoxes6[temp>>6&0b111111] << 4| SBoxes7[temp&0b111111];
+		return permutate(temp, PBox,32);
+	}
+
+	void DES::round(word &l, word &r, int i) const
+	{
+		l.w ^= (uint32_t)feistel(r.w, i);
+	}
 
 DES::DES(bool useAlt) : use_alt(useAlt)
 {
@@ -24,27 +49,6 @@ DES::DES(bool useAlt) : use_alt(useAlt)
 	keyperm2.assign(std::begin(keyperm2_data), std::end(keyperm2_data));
 	PBox.assign(std::begin(PBox_data), std::end(PBox_data));
 }
-
-
-
-#define rotl28(xr, times) ((((xr) << (times)) | ((xr) >> (28 - (times)))) & 0xFFFFFFF)
-
-	#define F(x,i) temp = permutate(x.w, ExpentionPerm,32)^Subkeys[i];\
-				   if (use_alt)\
-				   temp = SPBox[0][(temp>>42)&0x3f] ^ SPBox[1][(temp>>36)&0x3f] ^ SPBox[2][(temp>>30)&0x3f] ^ SPBox[3][(temp>>24)&0x3f]\
-				   ^ SPBox[4][(temp>>18)&0x3f] ^ SPBox[5][(temp>>12)&0x3f] ^ SPBox[6][(temp>>6)&0x3f] ^ SPBox[7][temp&0x3f];\
-				   else {\
-				   temp = SBoxes0[temp>>42] << 28 | SBoxes1[temp>>36&0b111111] << 24 | SBoxes2[temp>>30&0b111111] << 20\
-				   | SBoxes3[temp>>24&0b111111] << 16 | SBoxes4[temp>>18&0b111111] << 12 | SBoxes5[temp>>12&0b111111] << 8\
-				   | SBoxes6[temp>>6&0b111111] << 4| SBoxes7[temp&0b111111];\
-				   temp = permutate(temp, PBox,32);\
-				   }
-#define round(l,r,i) F(r,i); l.w ^= temp;
-
-union word{
-	uint32_t w;
-	uint8_t b[4];
-};
 
 static inline uint32_t rol32(uint32_t x, int n)
 {
