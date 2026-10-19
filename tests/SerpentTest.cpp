@@ -3,6 +3,7 @@
 #include <stdexcept>
 
 #include "TestBase.h"
+#include "vectors.h"
 #include "block/Serpent.h"
 
 class SerpentSuite : public CipherTestBase
@@ -16,91 +17,40 @@ public:
 	}
 };
 
-/* Multi-block vectors. Serpent's published vectors are single-block ECB, so
-   nothing published covers the mode wrappers; these were produced by GNU
-   nettle and are the only expected values here that are not traceable to a
-   numbered table. */
-struct ModeKat
-{
-	const char *name;
-	const char *key;
-	const char *cipher;
-};
-
-static const char *TWO_BLOCK_PT = "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f";
-
-static const ModeKat ECB_KATS[] = {
-	{"ecb two-block 128-bit", "000102030405060708090a0b0c0d0e0f",
-		"4c7d8a328072a22c823e4a1f3acda16d1fe31aba9824fb1b33b42582291388db"},
-	{"ecb two-block 192-bit", "000102030405060708090a0b0c0d0e0f1011121314151617",
-		"753d5b42d86672fb29070c4fe4eaaf4c4cc221270d91e743ca7b9d9e4e1ebe65"},
-	{"ecb two-block 256-bit", "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
-		"de269ff833e432b85b2e88d2701ce75ce534b936d9df2fc053bee5ed268fc68c"},
-};
-
-static const char *CBC_KEY = "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f";
-static const char *CBC_IV = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
-static const char *CBC_CIPHER = "2aa5a2ff0c27a0f9590f6167e9e779d861fc6463d2e956091e91677d4f38860c";
-
 int main()
 {
-	const char *K256 = "1111111111111111111111111111111111111111111111111111111111111111";
-	const char *P0 = "00112233445566778899aabbccddeeff";
-	const char *P1 = "ea024714ad5c4d84ea024714ad5c4d84";
-
-	/* The published single-block vectors, spanning all three key lengths and the
-	   four NESSIE sets. The Python suite in tests/vectors.py carries all sixteen;
-	   this is the subset worth burning C++ build time on. */
-	const std::vector<BlockKat> kats = {
-		{"kat 128-bit set1 v0", "80000000000000000000000000000000",
-			"00000000000000000000000000000000", "264e5481eff42a4606abda06c0bfda3d"},
-		{"kat 128-bit set4 v0", "000102030405060708090a0b0c0d0e0f", P0,
-			"563e2cf8740a27c164804560391e9b27"},
-		{"kat 128-bit set4 v1", "2bd6459f82c5b300952c49104881ff48", P1,
-			"92d7f8ef2c36c53409f275902f06539f"},
-		{"kat 192-bit set1 v0", "800000000000000000000000000000000000000000000000",
-			"00000000000000000000000000000000", "9e274ead9b737bb21efcfca548602689"},
-		{"kat 192-bit set4 v0", "000102030405060708090a0b0c0d0e0f1011121314151617", P0,
-			"6ab816c82de53b93005008afa2246a02"},
-		{"kat 256-bit set1 v0", "8000000000000000000000000000000000000000000000000000000000000000",
-			"00000000000000000000000000000000", "a223aa1288463c0e2be38ebd825616c0"},
-		{"kat 256-bit set3 v17", K256, "11111111111111111111111111111111",
-			"a482eaa5d5771f2fdb2ea1a5f141b9e2"},
-		{"kat 256-bit set4 v1", "2bd6459f82c5b300952c49104881ff482bd6459f82c5b300952c49104881ff48", P1,
-			"3e507730776b93fdea661235e1dd99f0"},
-	};
-
-	std::vector<BlockKat> ecbKats;
-	for (const ModeKat &k : ECB_KATS)
-		ecbKats.push_back(BlockKat{k.name, k.key, TWO_BLOCK_PT, k.cipher});
+	/* The published single-block vectors, spanning all three key lengths and
+	   the four NESSIE sets. The Python suite carries all sixteen; this is the
+	   subset worth burning C++ build time on. */
+	const char *K256 = SERPENT_K256;
 
 	SerpentSuite suite;
 
 	printf("== NESSIE known-answer tests ==\n");
-	suite.runEcbKats(kats);
-	suite.runEcbKatsDec(kats);
+	suite.runEcbKats(asKats(SERPENT_KATS));
+	suite.runEcbKatsDec(asKats(SERPENT_KATS));
 
 	printf("== ECB two blocks (nettle) ==\n");
-	suite.runEcbKats(ecbKats);
-	suite.runEcbKatsDec(ecbKats);
-	for (const ModeKat &k : ECB_KATS)
+	suite.runEcbKats(asKats(SERPENT_ECB));
+	suite.runEcbKatsDec(asKats(SERPENT_ECB));
+	for (const BlockKat &k : SERPENT_ECB)
 	{
 		/* ECB must not chain: encrypting block 2 alone gives the same bytes. */
 		Serpent c;
 		c.generateKeys(k.key);
-		std::vector<uint8_t> pt = hexToVec(TWO_BLOCK_PT), ct = hexToVec(k.cipher);
+		std::vector<uint8_t> pt = hexToVec(SERPENT_TWO_BLOCK_PT), ct = hexToVec(k.cipher);
 		std::vector<uint8_t> tail(pt.begin() + 16, pt.end()), half(ct.begin() + 16, ct.end());
 		c.encryptECB(&tail[0], (int)tail.size());
 		char label[96];
-		snprintf(label, sizeof(label), "%s block 2 stands alone", k.name);
+		snprintf(label, sizeof(label), "%s block 2 stands alone", k.name.c_str());
 		CHECK(compareVector(tail, half), label);
 	}
 
 	printf("== CBC two blocks (nettle) ==\n");
 	{
 		Serpent c;
-		std::vector<uint8_t> pt = hexToVec(TWO_BLOCK_PT), ct = hexToVec(CBC_CIPHER), v = pt, iv = hexToVec(CBC_IV);
-		c.generateKeys(CBC_KEY);
+		std::vector<uint8_t> pt = hexToVec(SERPENT_TWO_BLOCK_PT), ct = hexToVec(SERPENT_CBC[0].cipher), v = pt, iv = hexToVec(SERPENT_CBC_IV);
+		c.generateKeys(SERPENT_CBC_KEY);
 		c.encryptCBC(&v[0], (int)v.size(), &iv[0]);
 		CHECK(compareVector(v, ct), "cbc two-block encrypt");
 
@@ -110,7 +60,7 @@ int main()
 
 		/* decryptCBC advances the IV it is handed, so start from a fresh copy. */
 		v = ct;
-		iv = hexToVec(CBC_IV);
+		iv = hexToVec(SERPENT_CBC_IV);
 		c.decryptCBC(&v[0], (int)v.size(), &iv[0]);
 		CHECK(compareVector(v, pt), "cbc two-block decrypt");
 	}

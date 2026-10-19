@@ -3,6 +3,7 @@
 #include <stdexcept>
 
 #include "TestBase.h"
+#include "vectors.h"
 #include "block/DES.h"
 
 /* DES ships two implementations of the initial/final permutation (the naive
@@ -33,20 +34,15 @@ public:
 
 int main()
 {
-	const char *K1 = "133457799BBCDFF1";
-	const char *K2 = "0E329232EA6D0D73";
-	const char *K3 = "AABB09182736CCDD";
+	const char *K3 = DES_KATS[2].key;
 
-	const char *katKeys[] = {K1, K2, K3};
-	const char *katPlain[] = {"0123456789ABCDEF", "8787878787878787", "123456ABCD132536"};
-	const char *katCipher[] = {"85E813540F0AB405", "0000000000000000", "C0B7A8D05F3A829C"};
-
-	std::vector<BlockKat> altKats, naiveKats;
-	for (int i = 0; i < 3; ++i)
-	{
-		altKats.push_back(BlockKat{"kat " + std::to_string(i + 1) + " (alt)", katKeys[i], katPlain[i], katCipher[i]});
-		naiveKats.push_back(BlockKat{"kat " + std::to_string(i + 1) + " (naive)", katKeys[i], katPlain[i], katCipher[i]});
-	}
+	/* The published vectors anchor the default (delta-swap) path; the naive
+	   implementation is checked against the same values. */
+	std::vector<BlockKat> altKats = asKats(DES_KATS), naiveKats = asKats(DES_KATS);
+	for (BlockKat &k : altKats)
+		k.name += " (alt)";
+	for (BlockKat &k : naiveKats)
+		k.name += " (naive)";
 
 	printf("== standard DES known-answer tests (both IP/FP implementations) ==\n");
 	DESAltSuite alt;

@@ -5,6 +5,7 @@
 #include <stdexcept>
 
 #include "TestBase.h"
+#include "vectors.h"
 #include "block/Twofish.h"
 
 class TwofishSuite : public CipherTestBase
@@ -47,20 +48,11 @@ void writeFile(const char *path, std::vector<uint8_t> v)
 
 int main()
 {
-	/* Twofish book, appendix B.2 / official KAT set */
-	const std::vector<BlockKat> kats = {
-		{"official ecb 01", "00000000000000000000000000000000", "00000000000000000000000000000000", "9F589F5CF6122C32B6BFEC2F2AE8C35A"},
-		{"official ecb 02", "00000000000000000000000000000000", "9F589F5CF6122C32B6BFEC2F2AE8C35A", "D491DB16E7B1C39E86CB086B789F5419"},
-		{"official ecb 03", "9F589F5CF6122C32B6BFEC2F2AE8C35A", "D491DB16E7B1C39E86CB086B789F5419", "019F9809DE1711858FAAC3A3BA20FBC3"},
-		{"official ecb 04", "88B2B2706B105E36B446BB6D731A1E88EFA71F788965BD44", "39DA69D6BA4997D585B6DC073CA341B2", "182B02D81497EA45F9DAACDC29193A65"},
-		{"official ecb 05", "D43BB7556EA32E46F2A282B7D45B4E0D57FF739D4DC92C1BD7FC01700CC8216F", "90AFE91BB288544F2C32DC239B2635E6", "6CB4561C40BF0A9705931CB6D408E7FA"},
-	};
-
 	TwofishSuite suite;
 
 	printf("== Twofish known-answer tests (official ECB vectors) ==\n");
-	suite.runEcbKats(kats);
-	suite.runEcbKatsDec(kats);
+	suite.runEcbKats(asKats(TWOFISH_KATS));
+	suite.runEcbKatsDec(asKats(TWOFISH_KATS));
 
 	printf("== ECB round trip (all three key sizes) ==\n");
 	suite.runEcbRoundTrip("000102030405060708090A0B0C0D0E0F", 32, "128-bit key");

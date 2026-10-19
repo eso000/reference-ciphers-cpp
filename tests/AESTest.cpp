@@ -3,6 +3,7 @@
 #include <stdexcept>
 
 #include "TestBase.h"
+#include "vectors.h"
 #include "block/AES.h"
 
 class AESSuite : public CipherTestBase
@@ -18,33 +19,18 @@ public:
 
 int main()
 {
-	const char *K128 = "000102030405060708090a0b0c0d0e0f";
-	const char *K192 = "000102030405060708090a0b0c0d0e0f1011121314151617";
-	const char *K256 = "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f";
-	const char *P0 = "00112233445566778899aabbccddeeff";
-
-	const char *S128 = "2b7e151628aed2a6abf7158809cf4f3c";
-	const char *S192 = "8e73b0f7da0e6452c810f32b809079e562f8ead2522c6b7b";
-	const char *S256 = "603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4";
-	const char *SP = "6bc1bee22e409f96e93d7e117393172aae2d8a571e03ac9c9eb76fac45af8e5130c81c46a35ce411e5fbc1191a0a52eff69f2445df4f9b17ad2b417be66c3710";
-	const char *SC128 = "3ad77bb40d7a3660a89ecaf32466ef97f5d3d58503b9699de785895a96fdbaaf43b1cd7f598ece23881b00e3ed0306887b0c785e27e8ad3f8223207104725dd4";
-	const char *SC192 = "bd334f1d6e45f25ff712a214571fa5cc974104846d0ad3ad7734ecb3ecee4eefef7afd2270e2e60adce0ba2face6444e9a4b41ba738d6c72fb16691603c18e0e";
-	const char *SC256 = "f3eed1bdb5d2a03c064b5a7e3db181f8591ccb10d410ed26dc5ba74a31362870b6ed21b99ca6f4f9f153e7b1beafed1d23304b7a39f9f3ff067d8d8f9e24ecc7";
-
-	const std::vector<BlockKat> kats = {
-		{"fips-197 C.1 AES-128", K128, P0, "69c4e0d86a7b0430d8cdb78070b4c55a"},
-		{"fips-197 C.2 AES-192", K192, P0, "dda97ca4864cdfe06eaf70a0ec0d7191"},
-		{"fips-197 C.3 AES-256", K256, P0, "8ea2b7ca516745bfeafc49904b496089"},
-		{"sp800-38a ecb AES-128", S128, SP, SC128},
-		{"sp800-38a ecb AES-192", S192, SP, SC192},
-		{"sp800-38a ecb AES-256", S256, SP, SC256},
-	};
+	/* The FIPS keys double as the round-trip and vector-API keys below. */
+	const char *K128 = AES_FIPS[0].key;
+	const char *K192 = AES_FIPS[1].key;
+	const char *K256 = AES_FIPS[2].key;
 
 	AESSuite suite;
 
 	printf("== FIPS-197 single block / NIST SP 800-38A ECB ==\n");
-	suite.runEcbKats(kats);
-	suite.runEcbKatsDec(kats);
+	suite.runEcbKats(asKats(AES_FIPS));
+	suite.runEcbKatsDec(asKats(AES_FIPS));
+	suite.runEcbKats(asKats(AES_SP800_ECB));
+	suite.runEcbKatsDec(asKats(AES_SP800_ECB));
 
 	printf("== vector API / PKCS#7 padding ==\n");
 	try
