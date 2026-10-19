@@ -6,6 +6,7 @@
 #include "block/Serpent.h"
 #include <iterator>
 #include "Serpent_data.h"
+#include "force_inline.h"
 
 Serpent::Serpent()
 {
@@ -19,60 +20,69 @@ Serpent::Serpent()
 /* The block is held as four 32-bit words in little-endian bit order, so the
    paper's "<<<" and "<<" (Serpent proposal, Section 3) are plain rotl and
    masked left shifts on those words. */
-#define rotr(xr,times) (((xr) >> (times)) | ((xr) << (32 - (times))))
+FORCE_INLINE uint32_t rotl(uint32_t x, int n)
+{
+	return (x << n) | (x >> (32 - n));
+}
 
-#define rotl(xr,times) (((xr) << (times)) | ((xr) >> (32 - (times))))
+FORCE_INLINE uint32_t rotr(uint32_t x, int n)
+{
+	return (x >> n) | (x << (32 - n));
+}
 
 /* The ten steps of the paper's linear transformation, in its order. */
-#define LT(x0, x1, x2, x3){\
-        x0 = rotl(x0, 13);\
-        x2 = rotl(x2, 3);\
-        x1 = x1^x0^x2;\
-        x3 = x3^x2^(x0<<3);\
-        x1 = rotl(x1, 1);\
-        x3 = rotl(x3, 7);\
-        x0 = x0^x1^x3;\
-        x2 = x2^x3^(x1<<7);\
-        x0 = rotl(x0, 5);\
-        x2 = rotl(x2, 22);}
-
+FORCE_INLINE void serpent_LT(uint32_t *x0, uint32_t *x1, uint32_t *x2, uint32_t *x3)
+{
+	*x0 = rotl(*x0, 13);
+	*x2 = rotl(*x2, 3);
+	*x1 = *x1 ^ *x0 ^ *x2;
+	*x3 = *x3 ^ *x2 ^ (*x0 << 3);
+	*x1 = rotl(*x1, 1);
+	*x3 = rotl(*x3, 7);
+	*x0 = *x0 ^ *x1 ^ *x3;
+	*x2 = *x2 ^ *x3 ^ (*x1 << 7);
+	*x0 = rotl(*x0, 5);
+	*x2 = rotl(*x2, 22);
+}
 
 /* The same ten steps in reverse order, with every rotation turned around. */
-#define invLT(x0, x1, x2, x3){\
-        x2 = rotr(x2, 22);\
-        x0 = rotr(x0, 5);\
-        x2 = x2^x3^(x1<<7);\
-        x0 = x0^x1^x3;\
-        x3 = rotr(x3, 7);\
-        x1 = rotr(x1, 1);\
-        x3 = x3^x2^(x0<<3);\
-        x1 = x1^x0^x2;\
-        x2 = rotr(x2, 3);\
-        x0 = rotr(x0, 13);}
+FORCE_INLINE void serpent_invLT(uint32_t *x0, uint32_t *x1, uint32_t *x2, uint32_t *x3)
+{
+	*x2 = rotr(*x2, 22);
+	*x0 = rotr(*x0, 5);
+	*x2 = *x2 ^ *x3 ^ (*x1 << 7);
+	*x0 = *x0 ^ *x1 ^ *x3;
+	*x3 = rotr(*x3, 7);
+	*x1 = rotr(*x1, 1);
+	*x3 = *x3 ^ *x2 ^ (*x0 << 3);
+	*x1 = *x1 ^ *x0 ^ *x2;
+	*x2 = rotr(*x2, 3);
+	*x0 = rotr(*x0, 13);
+}
 
-#define SboxstepInv(x) newbits = invSBox[n][(((*x0>>x)&1) <<0 |\
-                                         								 ((*x1>>x)&1) <<1 |\
-                                         								 ((*x2>>x)&1) <<2 |\
-                                         								 ((*x3>>x)&1) <<3 )];\
-            nx0 |= ((newbits >> 0)&1) << x;\
-            nx1 |= ((newbits >> 1)&1) << x;\
-            nx2 |= ((newbits >> 2)&1) << x;\
-            nx3 |= ((newbits >> 3)&1) << x;
+FORCE_INLINE void serpent_addRoundKey(uint32_t *x0, uint32_t *x1, uint32_t *x2, uint32_t *x3, int i, const Serpent *s)
+{
+	*x0 ^= s->Subkeys[(i<<2)];
+	*x1 ^= s->Subkeys[(i<<2)+1];
+	*x2 ^= s->Subkeys[(i<<2)+2];
+	*x3 ^= s->Subkeys[(i<<2)+3];
+}
 
-#define round(i, p0,p1,p2,p3) p0 ^= Subkeys[(i<<2)];\
-        											p1 ^= Subkeys[(i<<2)+1];\
-        											p2 ^= Subkeys[(i<<2)+2];\
-        											p3 ^= Subkeys[(i<<2)+3];\
-        											applySBox(&p0, &p1, &p2, &p3, i%8);\
-        											LT(p0, p1, p2, p3)
+/* Rounds 0 to 30: key mixing, S-box i mod 8, linear transformation. */
+FORCE_INLINE void serpent_round(uint32_t *x0, uint32_t *x1, uint32_t *x2, uint32_t *x3, int i, const Serpent *s)
+{
+	serpent_addRoundKey(x0, x1, x2, x3, i, s);
+	s->applySBox(x0, x1, x2, x3, i%8);
+	serpent_LT(x0, x1, x2, x3);
+}
 
-#define roundInv(i, p0,p1,p2,p3) invLT(p0, p1, p2, p3);\
-        											applyInvSBox(&p0, &p1, &p2, &p3, i%8);\
-        											p0 ^= Subkeys[(i<<2)];\
-        											p1 ^= Subkeys[(i<<2)+1];\
-        											p2 ^= Subkeys[(i<<2)+2];\
-        											p3 ^= Subkeys[(i<<2)+3];
-
+/* The inverse round: the same steps in reverse, with the S-box inverted. */
+FORCE_INLINE void serpent_invRound(uint32_t *x0, uint32_t *x1, uint32_t *x2, uint32_t *x3, int i, const Serpent *s)
+{
+	serpent_invLT(x0, x1, x2, x3);
+	s->applyInvSBox(x0, x1, x2, x3, i%8);
+	serpent_addRoundKey(x0, x1, x2, x3, i, s);
+}
 
 	static std::string padKeyBit(std::string key)
 	{
@@ -358,11 +368,17 @@ static uint32_t serpentWordFromHex(const std::string &s)
         uint32_t nx1 = 0;
         uint32_t nx2 = 0;
         uint32_t nx3 = 0;
-        uint8_t newbits = 0;
 
         for (int x = 0; x < 32; ++x)
         {
-            SboxstepInv(x)
+            uint8_t newbits = invSBox[n][(((*x0>>x)&1) <<0 |
+                                          ((*x1>>x)&1) <<1 |
+                                          ((*x2>>x)&1) <<2 |
+                                          ((*x3>>x)&1) <<3 )];
+            nx0 |= ((newbits >> 0)&1) << x;
+            nx1 |= ((newbits >> 1)&1) << x;
+            nx2 |= ((newbits >> 2)&1) << x;
+            nx3 |= ((newbits >> 3)&1) << x;
         }
 
         *x0 = nx0;
@@ -423,37 +439,37 @@ static uint32_t serpentWordFromHex(const std::string &s)
 			uint32_t w3 = serpentLoad32(x3);
 			
 
-			round( 0,w0,w1,w2,w3)
-			round( 1,w0,w1,w2,w3)
-			round( 2,w0,w1,w2,w3)
-			round( 3,w0,w1,w2,w3)
-			round( 4,w0,w1,w2,w3)
-			round( 5,w0,w1,w2,w3)
-			round( 6,w0,w1,w2,w3)
-			round( 7,w0,w1,w2,w3)
-			round( 8,w0,w1,w2,w3)
-			round( 9,w0,w1,w2,w3)
-			round(10,w0,w1,w2,w3)
-			round(11,w0,w1,w2,w3)
-			round(12,w0,w1,w2,w3)
-			round(13,w0,w1,w2,w3)
-			round(14,w0,w1,w2,w3)
-			round(15,w0,w1,w2,w3)
-			round(16,w0,w1,w2,w3)
-			round(17,w0,w1,w2,w3)
-			round(18,w0,w1,w2,w3)
-			round(19,w0,w1,w2,w3)
-			round(20,w0,w1,w2,w3)
-			round(21,w0,w1,w2,w3)
-			round(22,w0,w1,w2,w3)
-			round(23,w0,w1,w2,w3)
-			round(24,w0,w1,w2,w3)
-			round(25,w0,w1,w2,w3)
-			round(26,w0,w1,w2,w3)
-			round(27,w0,w1,w2,w3)
-			round(28,w0,w1,w2,w3)
-			round(29,w0,w1,w2,w3)
-			round(30,w0,w1,w2,w3)
+			serpent_round(&w0, &w1, &w2, &w3, 0, this);
+			serpent_round(&w0, &w1, &w2, &w3, 1, this);
+			serpent_round(&w0, &w1, &w2, &w3, 2, this);
+			serpent_round(&w0, &w1, &w2, &w3, 3, this);
+			serpent_round(&w0, &w1, &w2, &w3, 4, this);
+			serpent_round(&w0, &w1, &w2, &w3, 5, this);
+			serpent_round(&w0, &w1, &w2, &w3, 6, this);
+			serpent_round(&w0, &w1, &w2, &w3, 7, this);
+			serpent_round(&w0, &w1, &w2, &w3, 8, this);
+			serpent_round(&w0, &w1, &w2, &w3, 9, this);
+			serpent_round(&w0, &w1, &w2, &w3, 10, this);
+			serpent_round(&w0, &w1, &w2, &w3, 11, this);
+			serpent_round(&w0, &w1, &w2, &w3, 12, this);
+			serpent_round(&w0, &w1, &w2, &w3, 13, this);
+			serpent_round(&w0, &w1, &w2, &w3, 14, this);
+			serpent_round(&w0, &w1, &w2, &w3, 15, this);
+			serpent_round(&w0, &w1, &w2, &w3, 16, this);
+			serpent_round(&w0, &w1, &w2, &w3, 17, this);
+			serpent_round(&w0, &w1, &w2, &w3, 18, this);
+			serpent_round(&w0, &w1, &w2, &w3, 19, this);
+			serpent_round(&w0, &w1, &w2, &w3, 20, this);
+			serpent_round(&w0, &w1, &w2, &w3, 21, this);
+			serpent_round(&w0, &w1, &w2, &w3, 22, this);
+			serpent_round(&w0, &w1, &w2, &w3, 23, this);
+			serpent_round(&w0, &w1, &w2, &w3, 24, this);
+			serpent_round(&w0, &w1, &w2, &w3, 25, this);
+			serpent_round(&w0, &w1, &w2, &w3, 26, this);
+			serpent_round(&w0, &w1, &w2, &w3, 27, this);
+			serpent_round(&w0, &w1, &w2, &w3, 28, this);
+			serpent_round(&w0, &w1, &w2, &w3, 29, this);
+			serpent_round(&w0, &w1, &w2, &w3, 30, this);
 			
 			w0 ^= Subkeys[31<<2];
       w1 ^= Subkeys[(31<<2)+1];
@@ -493,7 +509,7 @@ static uint32_t serpentWordFromHex(const std::string &s)
 
 			for (int i = 30; i >= 0; --i)
 			{
-				roundInv(i, w0,w1,w2,w3)
+				serpent_invRound(&w0, &w1, &w2, &w3, i, this);
 			}
 
       serpentStore32(x0, w0);
