@@ -1,41 +1,12 @@
 #include <vector>
 #include <string>
-#include <cstdio>
-#include <cstring>
-#include <cstdint>
 
+#include "TestBase.h"
 #include "block/AES.h"
 #include "block/Blowfish.h"
 #include "block/Twofish.h"
 #include "block/DES.h"
 #include "block/Serpent.h"
-
-static int g_fails = 0;
-
-#define CHECK(cond, name) { if (cond) printf("PASS: %s\n", name); else { printf("FAIL: %s\n", name); ++g_fails; } }
-
-static int compareVector(const std::vector<uint8_t>& v, const std::vector<uint8_t>& w)
-{
-	if (v.size() != w.size())
-		return 0;
-	for (size_t i = 0; i < v.size(); ++i)
-		if (v[i] != w[i])
-			return 0;
-	return 1;
-}
-
-static std::vector<uint8_t> hexToVec(const char *hex)
-{
-	std::vector<uint8_t> v;
-	int n = strlen(hex) / 2;
-	for (int i = 0; i < n; ++i)
-	{
-		unsigned x;
-		sscanf(hex + 2 * i, "%2x", &x);
-		v.push_back((uint8_t)x);
-	}
-	return v;
-}
 
 static void runCipher(const char *name, BlockCipher& c, BlockCipher& d)
 {

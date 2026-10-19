@@ -1,84 +1,35 @@
 #include <vector>
 #include <string>
-#include <cstdio>
-#include <cstring>
-#include <cstdint>
 #include <stdexcept>
 
+#include "TestBase.h"
 #include "block/DES.h"
 
-static int g_fails = 0;
-
-#define CHECK(cond, name) { if (cond) printf("PASS: %s\n", name); else { printf("FAIL: %s\n", name); ++g_fails; } }
-
-uint8_t compareVector(std::vector<uint8_t> v, std::vector<uint8_t> w)
+/* DES ships two implementations of the initial/final permutation (the naive
+   table lookup and the delta-swap network), selected by the constructor. The
+   published vectors anchor the default path; the other is a second suite so
+   both are checked the same way. */
+class DESAltSuite : public CipherTestBase
 {
-	if (v.size() != w.size())
-		return 0;
-	for (int i = 0; i < v.size(); ++i)
-		if (v[i] != w[i])
-			return 0;
-	return 1;
-}
-
-std::vector<uint8_t> hexToVec(const char *hex)
-{
-	std::vector<uint8_t> v;
-	int n = strlen(hex) / 2;
-	for (int i = 0; i < n; ++i)
+public:
+	std::unique_ptr<BlockCipher> makeKeyed(const char *keyHex) const override
 	{
-		unsigned x;
-		sscanf(hex + 2 * i, "%2x", &x);
-		v.push_back((uint8_t)x);
+		std::unique_ptr<DES> c(new DES(true));
+		c->generateKeys(keyHex);
+		return c;
 	}
-	return v;
-}
+};
 
-int desEncrypt(const char *key, std::vector<uint8_t> in, std::vector<uint8_t> *out, bool alt = true)
+class DESNaiveSuite : public CipherTestBase
 {
-	try
+public:
+	std::unique_ptr<BlockCipher> makeKeyed(const char *keyHex) const override
 	{
-		DES c(alt);
-		c.generateKeys(key);
-		*out = in;
-		c.encryptECB(&(*out)[0], out->size());
-		return 1;
+		std::unique_ptr<DES> c(new DES(false));
+		c->generateKeys(keyHex);
+		return c;
 	}
-	catch (...)
-	{
-		return 0;
-	}
-}
-
-int desDecrypt(const char *key, std::vector<uint8_t> in, std::vector<uint8_t> *out, bool alt = true)
-{
-	try
-	{
-		DES c(alt);
-		c.generateKeys(key);
-		*out = in;
-		c.decryptECB(&(*out)[0], out->size());
-		return 1;
-	}
-	catch (...)
-	{
-		return 0;
-	}
-}
-
-void runKat(const char *name, const char *key, const char *plain, const char *cipher, bool alt = true)
-{
-	std::vector<uint8_t> got;
-	int ok = desEncrypt(key, hexToVec(plain), &got, alt);
-	CHECK(ok && compareVector(got, hexToVec(cipher)), name);
-}
-
-void runKatDec(const char *name, const char *key, const char *plain, const char *cipher, bool alt = true)
-{
-	std::vector<uint8_t> got;
-	int ok = desDecrypt(key, hexToVec(cipher), &got, alt);
-	CHECK(ok && compareVector(got, hexToVec(plain)), name);
-}
+};
 
 int main()
 {
@@ -86,24 +37,24 @@ int main()
 	const char *K2 = "0E329232EA6D0D73";
 	const char *K3 = "AABB09182736CCDD";
 
-	printf("== standard DES known-answer tests (both IP/FP implementations) ==\n");
-	for (int ai = 0; ai < 2; ++ai)
+	const char *katKeys[] = {K1, K2, K3};
+	const char *katPlain[] = {"0123456789ABCDEF", "8787878787878787", "123456ABCD132536"};
+	const char *katCipher[] = {"85E813540F0AB405", "0000000000000000", "C0B7A8D05F3A829C"};
+
+	std::vector<BlockKat> altKats, naiveKats;
+	for (int i = 0; i < 3; ++i)
 	{
-		const char *mode = ai ? "alt" : "naive";
-		char name[128];
-		snprintf(name, sizeof(name), "kat 1 encrypt (%s)", mode);
-		runKat(name, K1, "0123456789ABCDEF", "85E813540F0AB405", ai);
-		snprintf(name, sizeof(name), "kat 1 decrypt (%s)", mode);
-		runKatDec(name, K1, "0123456789ABCDEF", "85E813540F0AB405", ai);
-		snprintf(name, sizeof(name), "kat 2 encrypt (%s)", mode);
-		runKat(name, K2, "8787878787878787", "0000000000000000", ai);
-		snprintf(name, sizeof(name), "kat 2 decrypt (%s)", mode);
-		runKatDec(name, K2, "8787878787878787", "0000000000000000", ai);
-		snprintf(name, sizeof(name), "kat 3 encrypt (%s)", mode);
-		runKat(name, K3, "123456ABCD132536", "C0B7A8D05F3A829C", ai);
-		snprintf(name, sizeof(name), "kat 3 decrypt (%s)", mode);
-		runKatDec(name, K3, "123456ABCD132536", "C0B7A8D05F3A829C", ai);
+		altKats.push_back(BlockKat{"kat " + std::to_string(i + 1) + " (alt)", katKeys[i], katPlain[i], katCipher[i]});
+		naiveKats.push_back(BlockKat{"kat " + std::to_string(i + 1) + " (naive)", katKeys[i], katPlain[i], katCipher[i]});
 	}
+
+	printf("== standard DES known-answer tests (both IP/FP implementations) ==\n");
+	DESAltSuite alt;
+	DESNaiveSuite naive;
+	alt.runEcbKats(altKats);
+	alt.runEcbKatsDec(altKats);
+	naive.runEcbKats(naiveKats);
+	naive.runEcbKatsDec(naiveKats);
 
 	printf("== delta-swap networks vs spec tables ==\n");
 	{
@@ -153,19 +104,7 @@ int main()
 	}
 
 	printf("== ECB multi-block round trip ==\n");
-	{
-		DES c, d;
-		c.generateKeys(K3);
-		d.generateKeys(K3);
-		std::vector<uint8_t> v, w;
-		for (int i = 0; i < 16; ++i)
-			v.push_back((uint8_t)(0x10 + i));
-		w = v;
-		c.encryptECB(&v[0], (int)v.size());
-		CHECK(!compareVector(v, w), "ecb ciphertext differs from plaintext");
-		d.decryptECB(&v[0], (int)v.size());
-		CHECK(compareVector(v, w), "ecb encrypt+decrypt restores plaintext");
-	}
+	alt.runEcbRoundTrip(K3, 16, "DES");
 
 	printf("== CBC round trip ==\n");
 	{
@@ -267,6 +206,5 @@ int main()
 		}
 	}
 
-	printf("\n%d test(s) failed\n", g_fails);
-	return g_fails ? 1 : 0;
+	return alt.report();
 }

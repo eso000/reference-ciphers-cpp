@@ -1,91 +1,20 @@
 #include <vector>
 #include <string>
-#include <cstdio>
-#include <cstring>
-#include <cstdint>
 #include <stdexcept>
 
+#include "TestBase.h"
 #include "block/AES.h"
 
-static int g_fails = 0;
-
-#define CHECK(cond, name) { if (cond) printf("PASS: %s\n", name); else { printf("FAIL: %s\n", name); ++g_fails; } }
-
-uint8_t compareVector(std::vector<uint8_t> v, std::vector<uint8_t> w)
+class AESSuite : public CipherTestBase
 {
-	if (v.size() != w.size())
-		return 0;
-	for (int i = 0; i < v.size(); ++i)
-		if (v[i] != w[i])
-			return 0;
-	return 1;
-}
-
-void printVec(std::vector<uint8_t> v)
-{
-	for (int i = 0; i < v.size(); ++i)
-		printf("%02x", v[i]);
-	printf("\n");
-}
-
-std::vector<uint8_t> hexToVec(const char *hex)
-{
-	std::vector<uint8_t> v;
-	int n = strlen(hex) / 2;
-	for (int i = 0; i < n; ++i)
+public:
+	std::unique_ptr<BlockCipher> makeKeyed(const char *keyHex) const override
 	{
-		unsigned x;
-		sscanf(hex + 2 * i, "%2x", &x);
-		v.push_back((uint8_t)x);
+		std::unique_ptr<AES> c(new AES());
+		c->generateKeys(keyHex);
+		return c;
 	}
-	return v;
-}
-
-int aesEncrypt(const char *key, std::vector<uint8_t> in, std::vector<uint8_t> *out)
-{
-	try
-	{
-		AES c;
-		c.generateKeys(key);
-		*out = in;
-		c.encrypt(&(*out)[0], out->size());
-		return 1;
-	}
-	catch (...)
-	{
-		return 0;
-	}
-}
-
-int aesDecrypt(const char *key, std::vector<uint8_t> in, std::vector<uint8_t> *out)
-{
-	try
-	{
-		AES c;
-		c.generateKeys(key);
-		*out = in;
-		c.decrypt(&(*out)[0], out->size());
-		return 1;
-	}
-	catch (...)
-	{
-		return 0;
-	}
-}
-
-void runKat(const char *name, const char *key, const char *plain, const char *cipher)
-{
-	std::vector<uint8_t> got;
-	int ok = aesEncrypt(key, hexToVec(plain), &got);
-	CHECK(ok && compareVector(got, hexToVec(cipher)), name);
-}
-
-void runKatDec(const char *name, const char *key, const char *plain, const char *cipher)
-{
-	std::vector<uint8_t> got;
-	int ok = aesDecrypt(key, hexToVec(cipher), &got);
-	CHECK(ok && compareVector(got, hexToVec(plain)), name);
-}
+};
 
 int main()
 {
@@ -102,21 +31,20 @@ int main()
 	const char *SC192 = "bd334f1d6e45f25ff712a214571fa5cc974104846d0ad3ad7734ecb3ecee4eefef7afd2270e2e60adce0ba2face6444e9a4b41ba738d6c72fb16691603c18e0e";
 	const char *SC256 = "f3eed1bdb5d2a03c064b5a7e3db181f8591ccb10d410ed26dc5ba74a31362870b6ed21b99ca6f4f9f153e7b1beafed1d23304b7a39f9f3ff067d8d8f9e24ecc7";
 
-	printf("== FIPS-197 single block ==\n");
-	runKat("fips-197 C.1 AES-128 encrypt", K128, P0, "69c4e0d86a7b0430d8cdb78070b4c55a");
-	runKat("fips-197 C.2 AES-192 encrypt", K192, P0, "dda97ca4864cdfe06eaf70a0ec0d7191");
-	runKat("fips-197 C.3 AES-256 encrypt", K256, P0, "8ea2b7ca516745bfeafc49904b496089");
-	runKatDec("fips-197 C.1 AES-128 decrypt", K128, P0, "69c4e0d86a7b0430d8cdb78070b4c55a");
-	runKatDec("fips-197 C.2 AES-192 decrypt", K192, P0, "dda97ca4864cdfe06eaf70a0ec0d7191");
-	runKatDec("fips-197 C.3 AES-256 decrypt", K256, P0, "8ea2b7ca516745bfeafc49904b496089");
+	const std::vector<BlockKat> kats = {
+		{"fips-197 C.1 AES-128", K128, P0, "69c4e0d86a7b0430d8cdb78070b4c55a"},
+		{"fips-197 C.2 AES-192", K192, P0, "dda97ca4864cdfe06eaf70a0ec0d7191"},
+		{"fips-197 C.3 AES-256", K256, P0, "8ea2b7ca516745bfeafc49904b496089"},
+		{"sp800-38a ecb AES-128", S128, SP, SC128},
+		{"sp800-38a ecb AES-192", S192, SP, SC192},
+		{"sp800-38a ecb AES-256", S256, SP, SC256},
+	};
 
-	printf("== NIST SP 800-38A ECB ==\n");
-	runKat("sp800-38a ecb AES-128 encrypt", S128, SP, SC128);
-	runKat("sp800-38a ecb AES-192 encrypt", S192, SP, SC192);
-	runKat("sp800-38a ecb AES-256 encrypt", S256, SP, SC256);
-	runKatDec("sp800-38a ecb AES-128 decrypt", S128, SP, SC128);
-	runKatDec("sp800-38a ecb AES-192 decrypt", S192, SP, SC192);
-	runKatDec("sp800-38a ecb AES-256 decrypt", S256, SP, SC256);
+	AESSuite suite;
+
+	printf("== FIPS-197 single block / NIST SP 800-38A ECB ==\n");
+	suite.runEcbKats(kats);
+	suite.runEcbKatsDec(kats);
 
 	printf("== vector API / PKCS#7 padding ==\n");
 	try
@@ -147,27 +75,9 @@ int main()
 	}
 
 	printf("== ECB multi-block round trip ==\n");
-	{
-		const char *kkeys[] = {K128, K192, K256};
-		const char *labels[] = {"AES-128", "AES-192", "AES-256"};
-		for (int s = 0; s < 3; ++s)
-		{
-			char name[96];
-			AES c, d;
-			c.generateKeys(kkeys[s]);
-			d.generateKeys(kkeys[s]);
-			std::vector<uint8_t> v, w;
-			for (int i = 0; i < 32; ++i)
-				v.push_back((uint8_t)(0xA5 + i));
-			w = v;
-			c.encrypt(&v[0], (int)v.size());
-			snprintf(name, sizeof(name), "%s: ciphertext differs from plaintext", labels[s]);
-			CHECK(!compareVector(v, w), name);
-			d.decrypt(&v[0], (int)v.size());
-			snprintf(name, sizeof(name), "%s: encrypt+decrypt restores plaintext", labels[s]);
-			CHECK(compareVector(v, w), name);
-		}
-	}
+	suite.runEcbRoundTrip(K128, 32, "AES-128");
+	suite.runEcbRoundTrip(K192, 32, "AES-192");
+	suite.runEcbRoundTrip(K256, 32, "AES-256");
 
 	/* AES accepts a 128, 192 or 256-bit key, i.e. 32, 48 or 64 hex
 	   characters. generateKeys used to round the length up to the next of
@@ -259,6 +169,5 @@ int main()
 		CHECK(0, "vector API invalid padding");
 	}
 
-	printf("\n%d test(s) failed\n", g_fails);
-	return g_fails ? 1 : 0;
+	return suite.report();
 }
