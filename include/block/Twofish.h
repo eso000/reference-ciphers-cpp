@@ -36,10 +36,6 @@ public:
 
 	void generateKeys(const std::vector<uint8_t>& key);
 
-	void encrypt_block(uint8_t *lb0,uint8_t *lb1,uint8_t *rb0,uint8_t *rb1) const;
-
-	void decrypt_block(uint8_t *lb0,uint8_t *lb1,uint8_t *rb0,uint8_t *rb1) const;
-	
 	int blockSize() const;
 
 	void encryptBlock(uint8_t *block) const;

@@ -151,8 +151,10 @@ uint64_t DES::fp_perm_alt(uint64_t block)
 		}
 	}
 
-	void DES::encrypt_block(uint8_t *lb,uint8_t *rb) const
+	void DES::encryptBlock(uint8_t *block) const
 	{
+		uint8_t *lb = block;
+		uint8_t *rb = block + 4;
 		union word left, right;
 		left.b[3] = *lb; left.b[2] = *(lb+1); left.b[1] = *(lb+2); left.b[0] = *(lb+3);
 		right.b[3] = *rb; right.b[2] = *(rb+1); right.b[1] = *(rb+2); right.b[0] = *(rb+3);
@@ -185,8 +187,10 @@ uint64_t DES::fp_perm_alt(uint64_t block)
 		*rb = right.b[3]; *(rb+1) = right.b[2]; *(rb+2) = right.b[1];*(rb+3) = right.b[0];
 	}
 
-	void DES::decrypt_block(uint8_t *lb,uint8_t *rb) const
+	void DES::decryptBlock(uint8_t *block) const
 	{
+		uint8_t *lb = block;
+		uint8_t *rb = block + 4;
 		union word left, right;
 		left.b[3] = *lb; left.b[2] = *(lb+1); left.b[1] = *(lb+2); left.b[0] = *(lb+3);
 		right.b[3] = *rb; right.b[2] = *(rb+1); right.b[1] = *(rb+2); right.b[0] = *(rb+3);
@@ -222,16 +226,6 @@ uint64_t DES::fp_perm_alt(uint64_t block)
 	int DES::blockSize() const
 	{
 		return 8;
-	}
-
-	void DES::encryptBlock(uint8_t *block) const
-	{
-		encrypt_block(block, block + 4);
-	}
-
-	void DES::decryptBlock(uint8_t *block) const
-	{
-		decrypt_block(block, block + 4);
 	}
 
 	std::vector<uint8_t> DES::encrypt(std::vector<uint8_t> plt) const

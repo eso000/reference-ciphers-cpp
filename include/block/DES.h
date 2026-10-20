@@ -50,10 +50,6 @@ public:
 
 	void generateKeys(std::string key);
 
-	void encrypt_block(uint8_t *lb,uint8_t *rb) const;
-
-	void decrypt_block(uint8_t *lb,uint8_t *rb) const;
-
 	int blockSize() const;
 
 	void encryptBlock(uint8_t *block) const;

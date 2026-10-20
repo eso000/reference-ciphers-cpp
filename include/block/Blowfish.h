@@ -18,10 +18,6 @@ public:
 	
 	
 
-	void encrypt_block(uint8_t *lb,uint8_t *rb) const;
-
-	void decrypt_block(uint8_t *lb,uint8_t *rb) const;
-
 	void generateKeys(const std::vector<uint8_t>& key);
 	
 	int blockSize() const;

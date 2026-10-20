@@ -29,7 +29,7 @@ void bf_decryptCBC(Blowfish *b, uint8_t *data, int len, uint8_t *iv)
 	for (uint8_t *i = data; i + 8 <= data + len; i = i + 8)
 	{
 		memcpy(cur, i, 8);
-		b->decrypt_block(i, i + 4);
+		b->decryptBlock(i);
 		for (int k = 0; k < 8; ++k)
 		{
 			i[k] ^= prev[k];
@@ -45,7 +45,7 @@ void bf_decryptPCBC(Blowfish *b, uint8_t *data, int len, uint8_t *iv)
 	for (uint8_t *i = data; i + 8 <= data + len; i = i + 8)
 	{
 		memcpy(cur, i, 8);
-		b->decrypt_block(i, i + 4);
+		b->decryptBlock(i);
 		for (int k = 0; k < 8; ++k)
 			i[k] ^= mask[k];
 		for (int k = 0; k < 8; ++k)
@@ -61,7 +61,7 @@ void bf_decryptCFB(Blowfish *b, uint8_t *data, int len, uint8_t *iv)
 	{
 		memcpy(ks, reg, 8);
 		memcpy(cur, i, 8);
-		b->encrypt_block(ks, ks + 4);
+		b->encryptBlock(ks);
 		for (int k = 0; k < 8; ++k)
 		{
 			i[k] ^= ks[k];

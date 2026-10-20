@@ -247,12 +247,12 @@ FORCE_INLINE void twofish_invRound(int i, uint32_t l0, uint32_t l1, uint32_t r0,
 		}
 	}
 
-	void Twofish::encrypt_block(uint8_t *lb0,uint8_t *lb1,uint8_t *rb0,uint8_t *rb1) const
+	void Twofish::encryptBlock(uint8_t *block) const
 	{
-		uint32_t left0 = BlockCipher::load32_le(lb0) ^ Subkeys[0];
-		uint32_t left1 = BlockCipher::load32_le(lb1) ^ Subkeys[1];
-		uint32_t right0 = BlockCipher::load32_le(rb0) ^ Subkeys[2];
-		uint32_t right1 = BlockCipher::load32_le(rb1) ^ Subkeys[3];
+		uint32_t left0 = BlockCipher::load32_le(block) ^ Subkeys[0];
+		uint32_t left1 = BlockCipher::load32_le(block + 4) ^ Subkeys[1];
+		uint32_t right0 = BlockCipher::load32_le(block + 8) ^ Subkeys[2];
+		uint32_t right1 = BlockCipher::load32_le(block + 12) ^ Subkeys[3];
 		uint32_t newl0, newl1;
 
 		twofish_round( 0, left0, left1, right0, right1, newl0, newl1, this);
@@ -275,18 +275,18 @@ FORCE_INLINE void twofish_invRound(int i, uint32_t l0, uint32_t l1, uint32_t r0,
 		left0 ^= Subkeys[4]; left1 ^= Subkeys[5];
 		newl0 ^= Subkeys[6]; newl1 ^= Subkeys[7];
 
-		BlockCipher::store32_le(lb0, left0);
-		BlockCipher::store32_le(lb1, left1);
-		BlockCipher::store32_le(rb0, newl0);
-		BlockCipher::store32_le(rb1, newl1);
+		BlockCipher::store32_le(block, left0);
+		BlockCipher::store32_le(block + 4, left1);
+		BlockCipher::store32_le(block + 8, newl0);
+		BlockCipher::store32_le(block + 12, newl1);
 	}
 
-	void Twofish::decrypt_block(uint8_t *lb0,uint8_t *lb1,uint8_t *rb0,uint8_t *rb1) const
+	void Twofish::decryptBlock(uint8_t *block) const
 	{
-		uint32_t left0 = BlockCipher::load32_le(lb0) ^ Subkeys[4];
-		uint32_t left1 = BlockCipher::load32_le(lb1) ^ Subkeys[5];
-		uint32_t right0 = BlockCipher::load32_le(rb0) ^ Subkeys[6];
-		uint32_t right1 = BlockCipher::load32_le(rb1) ^ Subkeys[7];
+		uint32_t left0 = BlockCipher::load32_le(block) ^ Subkeys[4];
+		uint32_t left1 = BlockCipher::load32_le(block + 4) ^ Subkeys[5];
+		uint32_t right0 = BlockCipher::load32_le(block + 8) ^ Subkeys[6];
+		uint32_t right1 = BlockCipher::load32_le(block + 12) ^ Subkeys[7];
 		uint32_t newl0, newl1;
 
 		twofish_invRound(15, left0, left1, right0, right1, newl0, newl1, this);
@@ -309,10 +309,10 @@ FORCE_INLINE void twofish_invRound(int i, uint32_t l0, uint32_t l1, uint32_t r0,
 		left0 ^= Subkeys[0]; left1 ^= Subkeys[1];
 		newl0 ^= Subkeys[2]; newl1 ^= Subkeys[3];
 
-		BlockCipher::store32_le(lb0, left0);
-		BlockCipher::store32_le(lb1, left1);
-		BlockCipher::store32_le(rb0, newl0);
-		BlockCipher::store32_le(rb1, newl1);
+		BlockCipher::store32_le(block, left0);
+		BlockCipher::store32_le(block + 4, left1);
+		BlockCipher::store32_le(block + 8, newl0);
+		BlockCipher::store32_le(block + 12, newl1);
 	}
 
 	
@@ -321,16 +321,6 @@ FORCE_INLINE void twofish_invRound(int i, uint32_t l0, uint32_t l1, uint32_t r0,
 	int Twofish::blockSize() const
 	{
 		return 16;
-	}
-
-	void Twofish::encryptBlock(uint8_t *block) const
-	{
-		encrypt_block(block, block + 4, block + 8, block + 12);
-	}
-
-	void Twofish::decryptBlock(uint8_t *block) const
-	{
-		decrypt_block(block, block + 4, block + 8, block + 12);
 	}
 
 	std::vector<uint8_t> Twofish::encrypt(std::vector<uint8_t> plt, std::vector<uint8_t> iv) const
