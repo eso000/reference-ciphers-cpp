@@ -1,6 +1,6 @@
 # reference-ciphers-cpp
 
-[![CI](https://img.shields.io/badge/CI-build%20%26%20test-brightgreen)](https://github.com/)
+[![CI](https://github.com/eso000/reference-ciphers-cpp/actions/workflows/ci.yml/badge.svg)](https://github.com/eso000/reference-ciphers-cpp/actions/workflows/ci.yml)
 [![C++17](https://img.shields.io/badge/C%2B%2B-C%2B%2B17-blue)](https://isocpp.org/)
 ![Dependencies: none](https://img.shields.io/badge/dependencies-none-brightgreen)
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)

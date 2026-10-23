@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    name: Test (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: gcc
+            cxx: g++
+            cxxflags: -std=c++17 -O2 -Wall -Wextra -Wpedantic -Werror
+          - name: clang
+            cxx: clang++
+            cxxflags: -std=c++17 -O2 -Wall -Wextra -Wpedantic -Werror
+          - name: gcc + ASan/UBSan
+            cxx: g++
+            cxxflags: >-
+              -std=c++17 -O1 -g -Wall -Wextra -Wpedantic -Werror
+              -fsanitize=address,undefined -fno-omit-frame-pointer
+          - name: clang + ASan/UBSan
+            cxx: clang++
+            cxxflags: >-
+              -std=c++17 -O1 -g -Wall -Wextra -Wpedantic -Werror
+              -fsanitize=address,undefined -fno-omit-frame-pointer
+    steps:
+      - uses: actions/checkout@v4
+      # The Makefile defaults to g++ without clobbering an environment or
+      # command-line choice, so the matrix only needs to pass CXX/CXXFLAGS.
+      # Every test binary links the whole library, so one `make test` run
+      # covers all five ciphers, the mode layer and the padding helpers.
+      - name: Build and run tests
+        run: make CXX="${{ matrix.cxx }}" CXXFLAGS="${{ matrix.cxxflags }}" test
+
+  coverage:
+    name: Coverage (gcovr)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Build instrumented, then run the tests
+        run: make CXX=g++ CXXFLAGS="-std=c++17 -O0 -g -Wall -Wextra -Wpedantic --coverage" test
+      - name: Install gcovr
+        run: pip install gcovr
+      # Each test binary is linked from the whole library, so gcovr merges the
+      # per-binary objects into one whole-library report.
+      - name: Report
+        run: |
+          gcovr --root . --txt --print-summary
+          {
+            echo "### Coverage"
+            echo
+            echo '```'
+            gcovr --root . --txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
