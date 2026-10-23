@@ -209,7 +209,7 @@ FORCE_INLINE void aes_invRound(uint32_t col1[4], uint32_t col2[4], const AES &a,
 			R = 15;
 
 		std::vector<std::vector<uint8_t>> W;
-		for(int i=0; i<key.length();i = i+8){
+		for(int i=0; i<(int)key.length();i = i+8){
 			W.push_back({(uint8_t)std::stoul(key.substr(i,2), 0, 16),
 						(uint8_t)std::stoul(key.substr(i+2,2), 0, 16),
 						(uint8_t)std::stoul(key.substr(i+4,2), 0, 16),
@@ -226,8 +226,6 @@ FORCE_INLINE void aes_invRound(uint32_t col1[4], uint32_t col2[4], const AES &a,
 						rcon[0] = 2*rcon[0];
 					}else{
 						rcon[0] = (2*rcon[0])^0x11B;
-						if (rcon[0]>255)
-							rcon[0] = rcon[0]%256;
 					}
 				}
 				aes_rotl4(temp.data());
@@ -255,8 +253,6 @@ FORCE_INLINE void aes_invRound(uint32_t col1[4], uint32_t col2[4], const AES &a,
 
 	void AES::encrypt_block128(uint8_t *p) const
 	{	
-		uint8_t temp[16];
-
 		uint32_t columnA[4];
 		uint32_t columnB[4];
 		
@@ -275,8 +271,6 @@ FORCE_INLINE void aes_invRound(uint32_t col1[4], uint32_t col2[4], const AES &a,
 
 	void AES::encrypt_block192(uint8_t *p) const
 	{	
-		uint8_t temp[16];
-
 		uint32_t columnA[4];
 		uint32_t columnB[4];
 
@@ -297,9 +291,6 @@ FORCE_INLINE void aes_invRound(uint32_t col1[4], uint32_t col2[4], const AES &a,
 
 	void AES::encrypt_block256(uint8_t *p) const
 	{	
-		uint8_t temp[16];
-
-
 		uint32_t columnA[4];
 		uint32_t columnB[4];
 
@@ -322,7 +313,6 @@ FORCE_INLINE void aes_invRound(uint32_t col1[4], uint32_t col2[4], const AES &a,
 
 	void AES::decrypt_block128(uint8_t *p) const
 	{	
-		uint8_t temp[16];
 		uint32_t columnA[4];
 		uint32_t columnB[4];
 		
@@ -343,7 +333,6 @@ FORCE_INLINE void aes_invRound(uint32_t col1[4], uint32_t col2[4], const AES &a,
 
 	void AES::decrypt_block192(uint8_t *p) const
 	{	
-		uint8_t temp[16];
 		uint32_t columnA[4];
 		uint32_t columnB[4];
 		
@@ -365,7 +354,6 @@ FORCE_INLINE void aes_invRound(uint32_t col1[4], uint32_t col2[4], const AES &a,
 
 void AES::decrypt_block256(uint8_t *p) const
 	{	
-		uint8_t temp[16];
 		uint32_t columnA[4];
 		uint32_t columnB[4];
 		

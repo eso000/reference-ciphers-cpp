@@ -94,7 +94,9 @@ FORCE_INLINE void serpent_invRound(uint32_t *x0, uint32_t *x1, uint32_t *x2, uin
 		// of 0x01 right after the key bytes.
 		bin += "00000001";
 	while ((int)bin.size() < 256)
+	{
 		bin += '0';
+	}
 		std::string out;
 		for (int i = 0; i < 256; i += 4)
 		{

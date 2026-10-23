@@ -123,7 +123,7 @@ uint64_t DES::fp_perm_alt(uint64_t block)
 	uint64_t DES::permutate(uint64_t x, std::vector<uint8_t> P, int base_size) const
 	{
 		uint64_t result = 0;
-		for (int i = 0; i < P.size(); ++i)
+		for (int i = 0; i < (int)P.size(); ++i)
 		{
 			result <<= 1;
 			result |= (x>>(base_size-P[i])&1);

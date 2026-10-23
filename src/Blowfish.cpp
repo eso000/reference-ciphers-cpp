@@ -91,27 +91,27 @@ FORCE_INLINE void blowfish_round(uint32_t *l, uint32_t *r, int i, const Blowfish
 
 		uint8_t P[8] = {(uint8_t)0, (uint8_t)0, (uint8_t)0, (uint8_t)0,(uint8_t)0,(uint8_t)0,(uint8_t)0,(uint8_t)0};
 
-		for(int i=0;i <Subkeys.size(); i=i+2){
+		for(int i=0;i <(int)Subkeys.size(); i=i+2){
 			encryptBlock(P);
 			Subkeys[i] = ((uint32_t)P[0]<<24) + ((uint32_t)P[1]<<16) + ((uint32_t)P[2]<<8) + P[3];
 			Subkeys[i+1] = ((uint32_t)P[4]<<24) + ((uint32_t)P[5]<<16) + ((uint32_t)P[6]<<8) + P[7];
 		}
-		for(int i = 0 ;i<SBoxes0.size();i=i+2){
+		for(int i = 0 ;i<(int)SBoxes0.size();i=i+2){
 			encryptBlock(P);
 			SBoxes0[i] = ((uint32_t)P[0]<<24) + ((uint32_t)P[1]<<16) + ((uint32_t)P[2]<<8) + P[3];
 			SBoxes0[i+1] = ((uint32_t)P[4]<<24) + ((uint32_t)P[5]<<16) + ((uint32_t)P[6]<<8) + P[7];
 		}
-		for(int i = 0 ;i<SBoxes1.size();i=i+2){
+		for(int i = 0 ;i<(int)SBoxes1.size();i=i+2){
 			encryptBlock(P);
 			SBoxes1[i] = ((uint32_t)P[0]<<24) + ((uint32_t)P[1]<<16) + ((uint32_t)P[2]<<8) + P[3];
 			SBoxes1[i+1] = ((uint32_t)P[4]<<24) + ((uint32_t)P[5]<<16) + ((uint32_t)P[6]<<8) + P[7];
 		}
-		for(int i = 0 ;i<SBoxes2.size();i=i+2){
+		for(int i = 0 ;i<(int)SBoxes2.size();i=i+2){
 			encryptBlock(P);
 			SBoxes2[i] = ((uint32_t)P[0]<<24) + ((uint32_t)P[1]<<16) + ((uint32_t)P[2]<<8) + P[3];
 			SBoxes2[i+1] = ((uint32_t)P[4]<<24) + ((uint32_t)P[5]<<16) + ((uint32_t)P[6]<<8) + P[7];
 		}
-		for(int i = 0 ;i<SBoxes3.size();i=i+2){
+		for(int i = 0 ;i<(int)SBoxes3.size();i=i+2){
 			encryptBlock(P);
 			SBoxes3[i] = ((uint32_t)P[0]<<24) + ((uint32_t)P[1]<<16) + ((uint32_t)P[2]<<8) + P[3];
 			SBoxes3[i+1] = ((uint32_t)P[4]<<24) + ((uint32_t)P[5]<<16) + ((uint32_t)P[6]<<8) + P[7];
