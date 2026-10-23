@@ -3,7 +3,7 @@
 [![CI](https://img.shields.io/badge/CI-build%20%26%20test-brightgreen)](https://github.com/)
 [![C++17](https://img.shields.io/badge/C%2B%2B-C%2B%2B17-blue)](https://isocpp.org/)
 ![Dependencies: none](https://img.shields.io/badge/dependencies-none-brightgreen)
-![License: Educational](https://img.shields.io/badge/license-educational-lightgrey)
+![License: MIT](https://img.shields.io/badge/license-MIT-green)
 
 From-scratch, dependency-free reference implementations of five classic block ciphers in C++17 — AES, DES, Blowfish, Twofish and Serpent — together with the six classic modes of operation and the usual padding schemes. Every cipher is checked against its official published test vectors.
 
@@ -53,12 +53,9 @@ Six modes of operation are shared by every cipher through the `BlockCipher` base
 
 ## Build and test
 
-The build system is rooted at `src/` within the repository. All build artifacts are produced under `src/build/`.
-
-From the repository root:
+The repository root is the build root. All build artifacts are produced under `build/`.
 
 ```bash
-cd src
 make          # build all cipher tests
 make test     # build and run all tests
 make clean    # remove build/
@@ -67,14 +64,12 @@ make clean    # remove build/
 You can also override the compiler:
 
 ```bash
-cd src
 make CXX=clang++ CXXFLAGS="-std=c++17 -O2 -Wall -Wextra -Wpedantic" test
 ```
 
 For stricter builds (warnings as errors, sanitizers):
 
 ```bash
-cd src
 # Warnings as errors
 make CXX=g++ CXXFLAGS="-std=c++17 -O2 -Wall -Wextra -Wpedantic -Werror" test
 
@@ -119,7 +114,7 @@ Individual ciphers can also be used at the block level via `encryptBlock()`/`dec
 
 ## Testing and verification
 
-Tests live in `src/tests/` and are built automatically by the Makefile:
+Tests live in `tests/` and are built automatically by the Makefile:
 
 - **Known-answer tests**: Every cipher is validated against official test vectors (FIPS-197 for AES, Schneier's official sets for Blowfish, Biham et al. for Serpent, published DES vectors, Twofish KATs).
 - **Round-trip tests**: Multi-block encrypt/decrypt round trips verify correctness.
@@ -132,14 +127,16 @@ The test vectors in `tests/vectors.h` include provenance notes documenting their
 
 ```
 Blockcipher/
-└── src/                # Build root
-    ├── Makefile        # Build configuration
-    ├── include/block/  # Public headers (BlockCipher, AES, DES, Blowfish, Twofish, Serpent, Padding)
-    ├── src/            # Implementations
-    ├── tests/          # Test suites and shared test infrastructure
-    └── build/          # Generated binaries (after build)
+├── LICENSE             # MIT license
+├── README.md
+├── .gitignore
+├── Makefile            # Build configuration
+├── include/block/      # Public headers (BlockCipher, AES, DES, Blowfish, Twofish, Serpent, Padding)
+├── src/                # Implementations
+├── tests/              # Test suites and shared test infrastructure
+└── build/              # Generated binaries (after build)
 ```
 
 ## License
 
-See repository for license information. This project is provided for educational purposes.
+MIT — see [LICENSE](LICENSE). The code is provided as-is, for educational use; the security notice above still applies.
