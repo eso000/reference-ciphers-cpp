@@ -8,7 +8,6 @@
 
 Twofish::Twofish()
 {
-	padding = 0;
 	RS.clear();
 	for (const auto& r : RS_data) RS.emplace_back(std::begin(r), std::end(r));
 	MDS.clear();

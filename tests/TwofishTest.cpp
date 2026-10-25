@@ -131,6 +131,8 @@ int main()
 		c.encrypt_File(path3);
 		CHECK(readFile(path3).size() == 16, "short file padded to a full block by encrypt_File");
 		CHECK(!compareVector(readFile(path3), orig), "short file changed by encrypt_File");
+		c.decrypt_File(path3);
+		CHECK(compareVector(readFile(path3), orig), "short file round trip after padding");
 	}
 
 	printf("== file API (CBC) ==\n");
