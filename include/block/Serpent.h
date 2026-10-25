@@ -1,13 +1,15 @@
-#ifndef SERPENT_HEADER
-#define SERPENT_HEADER
+#pragma once
 
-#include <stdint.h>
+#include <cstdint>
 #include <vector>
+#include <span>
 #include <string>
 
 #include "block/BlockCipher.h"
 
-class Serpent : public BlockCipher{
+namespace block {
+
+class Serpent final : public BlockCipher {
 public:
 	Serpent();
 
@@ -26,16 +28,16 @@ public:
 
 	void decrypt_block(uint8_t *x0,uint8_t *x1,uint8_t *x2,uint8_t *x3) const;
 
-	int blockSize() const;
+	size_t blockSize() const noexcept override;
 
-	void encryptBlock(uint8_t *block) const;
+	void encryptBlock(uint8_t *block) const override;
 
-	void decryptBlock(uint8_t *block) const;
+	void decryptBlock(uint8_t *block) const override;
 
-	std::vector<uint8_t> encrypt(std::vector<uint8_t> plt) const;
+	std::vector<uint8_t> encrypt(std::span<const uint8_t> plt) const;
 
-	std::vector<uint8_t> decrypt(std::vector<uint8_t> plt) const;
+	std::vector<uint8_t> decrypt(std::span<const uint8_t> plt) const;
 
 };
 
-#endif
+} // namespace block

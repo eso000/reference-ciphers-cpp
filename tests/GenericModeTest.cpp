@@ -9,6 +9,8 @@
 #include "block/DES.h"
 #include "block/Serpent.h"
 
+using namespace block;
+
 template <typename F>
 static bool throwsInvalidArgument(F fn)
 {
@@ -323,10 +325,10 @@ static void runKeyGuard(const char *name, BlockCipher &c, BadKey badKey, GoodKey
 	CHECK(throwsAs<std::logic_error>([&] { c.decryptBlock(&block[0]); }), label);
 
 	snprintf(label, sizeof(label), "%s encryptECB without generateKeys throws", name);
-	CHECK(throwsAs<std::logic_error>([&] { c.encryptECB(&block[0], bs); }), label);
+	CHECK(throwsAs<std::logic_error>([&] { c.encryptECB(std::span<uint8_t>(block).first(bs)); }), label);
 
 	snprintf(label, sizeof(label), "%s decryptECB without generateKeys throws", name);
-	CHECK(throwsAs<std::logic_error>([&] { c.decryptECB(&block[0], bs); }), label);
+	CHECK(throwsAs<std::logic_error>([&] { c.decryptECB(std::span<uint8_t>(block).first(bs)); }), label);
 
 	snprintf(label, sizeof(label), "%s encryptMode without generateKeys throws", name);
 	CHECK(throwsAs<std::logic_error>([&] {

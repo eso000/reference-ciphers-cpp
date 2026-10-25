@@ -1,12 +1,14 @@
-#ifndef BLOWFISH_HEADER
-#define BLOWFISH_HEADER
+#pragma once
 
-#include <stdint.h>
+#include <cstdint>
+#include <span>
 #include <vector>
 
 #include "block/BlockCipher.h"
 
-class Blowfish : public BlockCipher{
+namespace block {
+
+class Blowfish final : public BlockCipher {
 public:
 	
 	
@@ -20,14 +22,14 @@ public:
 
 	void generateKeys(const std::vector<uint8_t>& key);
 	
-	int blockSize() const;
+	size_t blockSize() const noexcept override;
 
-	void encryptBlock(uint8_t *block) const;
+	void encryptBlock(uint8_t *block) const override;
 
-	void decryptBlock(uint8_t *block) const;
+	void decryptBlock(uint8_t *block) const override;
 
-	std::vector<uint8_t> encrypt(std::vector<uint8_t> plt, std::vector<uint8_t> iv) const;
+	std::vector<uint8_t> encrypt(std::span<const uint8_t> plt, std::span<const uint8_t> iv) const;
 
 };
 
-#endif
+} // namespace block

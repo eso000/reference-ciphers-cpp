@@ -6,6 +6,8 @@
 #include "vectors.h"
 #include "block/DES.h"
 
+using namespace block;
+
 /* DES ships two implementations of the initial/final permutation (the naive
    table lookup and the delta-swap network), selected by the constructor. The
    published vectors anchor the default path; the other is a second suite so
@@ -91,11 +93,11 @@ int main()
 		b.generateKeys(K3);
 		std::vector<uint8_t> in = hexToVec("123456ABCD132536");
 		std::vector<uint8_t> ca = in, cb = in;
-		a.encryptECB(&ca[0], 8);
-		b.encryptECB(&cb[0], 8);
+		a.encryptECB(std::span<uint8_t>(ca).first(8));
+		b.encryptECB(std::span<uint8_t>(cb).first(8));
 		CHECK(compareVector(ca, cb), "alt==naive encrypt");
-		a.decryptECB(&ca[0], 8);
-		b.decryptECB(&cb[0], 8);
+		a.decryptECB(std::span<uint8_t>(ca).first(8));
+		b.decryptECB(std::span<uint8_t>(cb).first(8));
 		CHECK(compareVector(ca, cb) && compareVector(ca, in), "alt==naive decrypt");
 	}
 
@@ -114,9 +116,9 @@ int main()
 		for (int i = 0; i < 8; ++i)
 			iv.push_back(0x00);
 		iv2 = iv;
-		c.encryptCBC(&v[0], (int)v.size(), &iv[0]);
+		c.encryptCBC(v, iv);
 		CHECK(!compareVector(v, w), "cbc ciphertext differs from plaintext");
-		d.decryptCBC(&v[0], (int)v.size(), &iv2[0]);
+		d.decryptCBC(v, iv2);
 		CHECK(compareVector(v, w), "cbc encrypt+decrypt restores plaintext");
 	}
 

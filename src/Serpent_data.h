@@ -1,7 +1,6 @@
-#ifndef SERPENT_DATA_HEADER
-#define SERPENT_DATA_HEADER
+#pragma once
 
-#include <stdint.h>
+#include <cstdint>
 
 /* Data tables for Serpent cipher. */
 
@@ -23,4 +22,3 @@ static const uint8_t invSBox_data[8][16] = {{13, 3,11, 0,10, 6, 5,12, 1,14, 4, 7
                           {15,10, 1,13, 5, 3, 6, 0, 4, 9,14, 7, 2,12, 8,11 },
                           { 3, 0, 6,13, 9,14,15, 8, 5,12,11, 7,10, 1, 4, 2 }};
 
-#endif

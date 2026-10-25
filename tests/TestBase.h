@@ -1,5 +1,4 @@
-#ifndef TESTBASE_HEADER
-#define TESTBASE_HEADER
+#pragma once
 
 #include <cstdint>
 #include <cstdio>
@@ -44,7 +43,7 @@ public:
 	virtual ~CipherTestBase() {}
 
 	/* Build a cipher of this suite's type, keyed from a hex string. */
-	virtual std::unique_ptr<BlockCipher> makeKeyed(const char *keyHex) const = 0;
+	virtual std::unique_ptr<block::BlockCipher> makeKeyed(const char *keyHex) const = 0;
 
 	/* Every vector encrypts to its expected ciphertext. */
 	void runEcbKats(const std::vector<BlockKat> &kats);
@@ -60,4 +59,3 @@ public:
 	int report();
 };
 
-#endif

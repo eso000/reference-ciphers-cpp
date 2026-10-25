@@ -1,13 +1,15 @@
 #include "block/Padding.h"
 
-int missingFor(int len, int blockSize)
+namespace block {
+
+size_t missingFor(size_t len, size_t blockSize)
 {
 	return blockSize - (len % blockSize);
 }
 
-void pad(std::vector<uint8_t>& buf, int missing, Padding type)
+void pad(std::vector<uint8_t>& buf, size_t missing, Padding type)
 {
-	if (missing <= 0)
+	if (missing == 0)
 		return;
 
 	switch (type)
@@ -15,29 +17,25 @@ void pad(std::vector<uint8_t>& buf, int missing, Padding type)
 		case Padding::None:
 			return;
 		case Padding::Zeros:
-			for (int i = 0; i < missing; ++i)
-				buf.push_back((uint8_t) 0);
+			buf.insert(buf.end(), missing, uint8_t{0});
 			return;
 		case Padding::PKCS7:
-			for (int i = 0; i < missing; ++i)
-				buf.push_back((uint8_t) missing);
+			buf.insert(buf.end(), missing, static_cast<uint8_t>(missing));
 			return;
 		case Padding::ANSIX923:
-			for (int i = 0; i < missing - 1; ++i)
-				buf.push_back((uint8_t) 0);
-			buf.push_back((uint8_t) missing);
+			buf.insert(buf.end(), missing - 1, uint8_t{0});
+			buf.push_back(static_cast<uint8_t>(missing));
 			return;
 		case Padding::ISO78164:
-			buf.push_back((uint8_t) 0x80);
-			for (int i = 0; i < missing - 1; ++i)
-				buf.push_back((uint8_t) 0);
+			buf.push_back(uint8_t{0x80});
+			buf.insert(buf.end(), missing - 1, uint8_t{0});
 			return;
 	}
 }
 
-bool unpad(std::vector<uint8_t>& buf, Padding type, int blockSize)
+bool unpad(std::vector<uint8_t>& buf, Padding type, size_t blockSize)
 {
-	int l = (int) buf.size();
+	const size_t l = buf.size();
 	if (l == 0)
 	{
 		/* An empty buffer carries no padding block, so it is only valid when
@@ -54,10 +52,10 @@ bool unpad(std::vector<uint8_t>& buf, Padding type, int blockSize)
 			return true;
 		case Padding::PKCS7:
 		{
-			uint8_t n = buf[l - 1];
+			const uint8_t n = buf[l - 1];
 			if (n < 1 || n > blockSize)
 				return false;
-			for (int i = 0; i < n; ++i)
+			for (size_t i = 0; i < n; ++i)
 				if (buf[l - 1 - i] != n)
 					return false;
 			buf.resize(l - n);
@@ -65,10 +63,10 @@ bool unpad(std::vector<uint8_t>& buf, Padding type, int blockSize)
 		}
 		case Padding::ANSIX923:
 		{
-			uint8_t n = buf[l - 1];
+			const uint8_t n = buf[l - 1];
 			if (n < 1 || n > blockSize)
 				return false;
-			for (int i = 1; i < n; ++i)
+			for (size_t i = 1; i < n; ++i)
 				if (buf[l - 1 - i] != 0)
 					return false;
 			buf.resize(l - n);
@@ -76,14 +74,19 @@ bool unpad(std::vector<uint8_t>& buf, Padding type, int blockSize)
 		}
 		case Padding::ISO78164:
 		{
-			int i = l - 1;
-			while (i >= l - blockSize && buf[i] == 0)
-				--i;
-			if (i < l - blockSize || buf[i] != 0x80)
+			/* Skip zero bytes back from the end, but never past the last
+			   block; the byte they stop at must be the 0x80 marker. */
+			const size_t floor = l - blockSize;
+			size_t end = l;
+			while (end > floor && buf[end - 1] == 0)
+				--end;
+			if (end == floor || buf[end - 1] != 0x80)
 				return false;
-			buf.resize(i);
+			buf.resize(end - 1);
 			return true;
 		}
 	}
 	return false;
 }
+
+} // namespace block

@@ -1,5 +1,4 @@
-#ifndef FORCE_INLINE_HEADER
-#define FORCE_INLINE_HEADER
+#pragma once
 
 /* `inline` is only a hint. At -O2 gcc declines it for the larger round
    helpers, which cost AES and Serpent about 30% of their speed against the
@@ -11,4 +10,3 @@
 #define FORCE_INLINE static inline
 #endif
 
-#endif

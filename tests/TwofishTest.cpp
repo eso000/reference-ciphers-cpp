@@ -8,6 +8,8 @@
 #include "vectors.h"
 #include "block/Twofish.h"
 
+using namespace block;
+
 class TwofishSuite : public CipherTestBase
 {
 public:
@@ -68,10 +70,10 @@ int main()
 		                        0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f});
 		std::vector<uint8_t> w = v;
 		std::vector<uint8_t> iv(16, 0xAA);
-		c.encryptCBC(&v[0], 32, &iv[0]);
+		c.encryptCBC(std::span<uint8_t>(v).first(32), iv);
 		CHECK(!compareVector(v, w), "cbc two-block ciphertext differs from plaintext");
 		std::vector<uint8_t> iv2(16, 0xAA);
-		d.decryptCBC(&v[0], 32, &iv2[0]);
+		d.decryptCBC(std::span<uint8_t>(v).first(32), iv2);
 		CHECK(compareVector(v, w), "cbc two-block encrypt+decrypt restores plaintext");
 	}
 
@@ -88,7 +90,7 @@ int main()
 		CHECK(!compareVector(ct, pt), "encrypt() output differs from plaintext");
 		std::vector<uint8_t> dec = ct;
 		std::vector<uint8_t> iv2(16, 0);
-		d.decryptCBC(&dec[0], (int)dec.size(), &iv2[0]);
+		d.decryptCBC(dec, iv2);
 		uint8_t ok = unpadPKCS(&dec);
 		CHECK(ok && compareVector(dec, pt), "decrypt + strip PKCS#7 restores plaintext");
 	}

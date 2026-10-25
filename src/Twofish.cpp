@@ -4,7 +4,12 @@
 #include "block/Twofish.h"
 #include <iterator>
 #include "Twofish_data.h"
+#include "bits.h"
 #include "force_inline.h"
+
+namespace block {
+
+using namespace detail;
 
 Twofish::Twofish()
 {
@@ -35,10 +40,10 @@ FORCE_INLINE void twofish_pht(uint32_t *a, uint32_t *b)
 /* Multiplies the four bytes of t by the MDS matrix. */
 FORCE_INLINE uint32_t twofish_mds(const Twofish &tf, uint32_t t)
 {
-	return (uint32_t)(BlockCipher::byte3(t) ^ tf.MDSEF[BlockCipher::byte2(t)] ^ tf.MDS5B[BlockCipher::byte1(t)] ^ tf.MDS5B[BlockCipher::byte0(t)])
-		| ((uint32_t)(tf.MDS5B[BlockCipher::byte3(t)] ^ tf.MDSEF[BlockCipher::byte2(t)] ^ tf.MDSEF[BlockCipher::byte1(t)] ^ BlockCipher::byte0(t)) << 8)
-		| ((uint32_t)(tf.MDSEF[BlockCipher::byte3(t)] ^ tf.MDS5B[BlockCipher::byte2(t)] ^ BlockCipher::byte1(t) ^ tf.MDSEF[BlockCipher::byte0(t)]) << 16)
-		| ((uint32_t)(tf.MDSEF[BlockCipher::byte3(t)] ^ BlockCipher::byte2(t) ^ tf.MDSEF[BlockCipher::byte1(t)] ^ tf.MDS5B[BlockCipher::byte0(t)]) << 24);
+	return (uint32_t)(byte3(t) ^ tf.MDSEF[byte2(t)] ^ tf.MDS5B[byte1(t)] ^ tf.MDS5B[byte0(t)])
+		| ((uint32_t)(tf.MDS5B[byte3(t)] ^ tf.MDSEF[byte2(t)] ^ tf.MDSEF[byte1(t)] ^ byte0(t)) << 8)
+		| ((uint32_t)(tf.MDSEF[byte3(t)] ^ tf.MDS5B[byte2(t)] ^ byte1(t) ^ tf.MDSEF[byte0(t)]) << 16)
+		| ((uint32_t)(tf.MDSEF[byte3(t)] ^ byte2(t) ^ tf.MDSEF[byte1(t)] ^ tf.MDS5B[byte0(t)]) << 24);
 }
 
 /* The h function for 128, 192 and 256-bit keys: the q-permutation chain for
@@ -46,35 +51,35 @@ FORCE_INLINE uint32_t twofish_mds(const Twofish &tf, uint32_t t)
    it; encryption goes through the precomputed Sbox0..3 tables instead. */
 static uint32_t twofish_h128(uint32_t x, const uint8_t *k, const Twofish &tf)
 {
-	uint32_t t = (uint32_t)tf.q1[tf.q0[tf.q0[BlockCipher::byte0(x)] ^ k[0]] ^ k[4]]
-		| ((uint32_t)tf.q0[tf.q0[tf.q1[BlockCipher::byte1(x)] ^ k[1]] ^ k[5]] << 8)
-		| ((uint32_t)tf.q1[tf.q1[tf.q0[BlockCipher::byte2(x)] ^ k[2]] ^ k[6]] << 16)
-		| ((uint32_t)tf.q0[tf.q1[tf.q1[BlockCipher::byte3(x)] ^ k[3]] ^ k[7]] << 24);
+	uint32_t t = (uint32_t)tf.q1[tf.q0[tf.q0[byte0(x)] ^ k[0]] ^ k[4]]
+		| ((uint32_t)tf.q0[tf.q0[tf.q1[byte1(x)] ^ k[1]] ^ k[5]] << 8)
+		| ((uint32_t)tf.q1[tf.q1[tf.q0[byte2(x)] ^ k[2]] ^ k[6]] << 16)
+		| ((uint32_t)tf.q0[tf.q1[tf.q1[byte3(x)] ^ k[3]] ^ k[7]] << 24);
 	return twofish_mds(tf, t);
 }
 
 static uint32_t twofish_h192(uint32_t x, const uint8_t *k, const Twofish &tf)
 {
-	uint32_t t = (uint32_t)tf.q1[tf.q0[tf.q0[tf.q1[BlockCipher::byte0(x)] ^ k[0]] ^ k[4]] ^ k[8]]
-		| ((uint32_t)tf.q0[tf.q0[tf.q1[tf.q1[BlockCipher::byte1(x)] ^ k[1]] ^ k[5]] ^ k[9]] << 8)
-		| ((uint32_t)tf.q1[tf.q1[tf.q0[tf.q0[BlockCipher::byte2(x)] ^ k[2]] ^ k[6]] ^ k[10]] << 16)
-		| ((uint32_t)tf.q0[tf.q1[tf.q1[tf.q0[BlockCipher::byte3(x)] ^ k[3]] ^ k[7]] ^ k[11]] << 24);
+	uint32_t t = (uint32_t)tf.q1[tf.q0[tf.q0[tf.q1[byte0(x)] ^ k[0]] ^ k[4]] ^ k[8]]
+		| ((uint32_t)tf.q0[tf.q0[tf.q1[tf.q1[byte1(x)] ^ k[1]] ^ k[5]] ^ k[9]] << 8)
+		| ((uint32_t)tf.q1[tf.q1[tf.q0[tf.q0[byte2(x)] ^ k[2]] ^ k[6]] ^ k[10]] << 16)
+		| ((uint32_t)tf.q0[tf.q1[tf.q1[tf.q0[byte3(x)] ^ k[3]] ^ k[7]] ^ k[11]] << 24);
 	return twofish_mds(tf, t);
 }
 
 static uint32_t twofish_h256(uint32_t x, const uint8_t *k, const Twofish &tf)
 {
-	uint32_t t = (uint32_t)tf.q1[tf.q0[tf.q0[tf.q1[tf.q1[BlockCipher::byte0(x)] ^ k[0]] ^ k[4]] ^ k[8]] ^ k[12]]
-		| ((uint32_t)tf.q0[tf.q0[tf.q1[tf.q1[tf.q0[BlockCipher::byte1(x)] ^ k[1]] ^ k[5]] ^ k[9]] ^ k[13]] << 8)
-		| ((uint32_t)tf.q1[tf.q1[tf.q0[tf.q0[tf.q0[BlockCipher::byte2(x)] ^ k[2]] ^ k[6]] ^ k[10]] ^ k[14]] << 16)
-		| ((uint32_t)tf.q0[tf.q1[tf.q1[tf.q0[tf.q1[BlockCipher::byte3(x)] ^ k[3]] ^ k[7]] ^ k[11]] ^ k[15]] << 24);
+	uint32_t t = (uint32_t)tf.q1[tf.q0[tf.q0[tf.q1[tf.q1[byte0(x)] ^ k[0]] ^ k[4]] ^ k[8]] ^ k[12]]
+		| ((uint32_t)tf.q0[tf.q0[tf.q1[tf.q1[tf.q0[byte1(x)] ^ k[1]] ^ k[5]] ^ k[9]] ^ k[13]] << 8)
+		| ((uint32_t)tf.q1[tf.q1[tf.q0[tf.q0[tf.q0[byte2(x)] ^ k[2]] ^ k[6]] ^ k[10]] ^ k[14]] << 16)
+		| ((uint32_t)tf.q0[tf.q1[tf.q1[tf.q0[tf.q1[byte3(x)] ^ k[3]] ^ k[7]] ^ k[11]] ^ k[15]] << 24);
 	return twofish_mds(tf, t);
 }
 
 /* The g function, through the key-dependent S-boxes built by the schedule. */
 FORCE_INLINE uint32_t twofish_g(const Twofish *tf, uint32_t x)
 {
-	return tf->Sbox0[BlockCipher::byte0(x)] ^ tf->Sbox1[BlockCipher::byte1(x)] ^ tf->Sbox2[BlockCipher::byte2(x)] ^ tf->Sbox3[BlockCipher::byte3(x)];
+	return tf->Sbox0[byte0(x)] ^ tf->Sbox1[byte1(x)] ^ tf->Sbox2[byte2(x)] ^ tf->Sbox3[byte3(x)];
 }
 
 /* One encryption round: F of the half (l0, l1) is mixed with (r0, r1) into
@@ -83,24 +88,24 @@ FORCE_INLINE uint32_t twofish_g(const Twofish *tf, uint32_t x)
 FORCE_INLINE void twofish_round(int i, uint32_t l0, uint32_t l1, uint32_t r0, uint32_t r1, uint32_t &nl0, uint32_t &nl1, const Twofish *tf)
 {
 	uint32_t t0 = twofish_g(tf, l0);
-	uint32_t t1 = twofish_g(tf, BlockCipher::rotl(l1, 8));
+	uint32_t t1 = twofish_g(tf, rotl(l1, 8));
 	twofish_pht(&t0, &t1);
 	t0 += tf->Subkeys[2*i+8];
 	t1 += tf->Subkeys[2*i+9];
-	nl0 = BlockCipher::rotr(t0 ^ r0, 1);
-	nl1 = t1 ^ BlockCipher::rotl(r1, 1);
+	nl0 = rotr(t0 ^ r0, 1);
+	nl1 = t1 ^ rotl(r1, 1);
 }
 
 /* The inverse round: the same F, with the rotations of the mixing step undone. */
 FORCE_INLINE void twofish_invRound(int i, uint32_t l0, uint32_t l1, uint32_t r0, uint32_t r1, uint32_t &nl0, uint32_t &nl1, const Twofish *tf)
 {
 	uint32_t t0 = twofish_g(tf, l0);
-	uint32_t t1 = twofish_g(tf, BlockCipher::rotl(l1, 8));
+	uint32_t t1 = twofish_g(tf, rotl(l1, 8));
 	twofish_pht(&t0, &t1);
 	t0 += tf->Subkeys[2*i+8];
 	t1 += tf->Subkeys[2*i+9];
-	nl0 = t0 ^ BlockCipher::rotl(r0, 1);
-	nl1 = BlockCipher::rotr(t1 ^ r1, 1);
+	nl0 = t0 ^ rotl(r0, 1);
+	nl1 = rotr(t1 ^ r1, 1);
 }
 	uint32_t Twofish::multgf(uint32_t a,uint32_t b,uint32_t pol) const {
 		if (b == 0 )
@@ -239,10 +244,10 @@ FORCE_INLINE void twofish_invRound(int i, uint32_t l0, uint32_t l1, uint32_t r0,
 					b0 = twofish_h128(b0, &M_odd[0], *this);
 					break;
 			}
-			b0 = BlockCipher::rotl(b0,8);
+			b0 = rotl(b0,8);
 			twofish_pht(&a0, &b0);
 			Subkeys.push_back(a0);
-			b0 = BlockCipher::rotl(b0,9);
+			b0 = rotl(b0,9);
 			Subkeys.push_back(b0);	 
 		}
 		keySet = true;
@@ -251,10 +256,10 @@ FORCE_INLINE void twofish_invRound(int i, uint32_t l0, uint32_t l1, uint32_t r0,
 	void Twofish::encryptBlock(uint8_t *block) const
 	{
 		requireKey();
-		uint32_t left0 = BlockCipher::load32_le(block) ^ Subkeys[0];
-		uint32_t left1 = BlockCipher::load32_le(block + 4) ^ Subkeys[1];
-		uint32_t right0 = BlockCipher::load32_le(block + 8) ^ Subkeys[2];
-		uint32_t right1 = BlockCipher::load32_le(block + 12) ^ Subkeys[3];
+		uint32_t left0 = load32_le(block) ^ Subkeys[0];
+		uint32_t left1 = load32_le(block + 4) ^ Subkeys[1];
+		uint32_t right0 = load32_le(block + 8) ^ Subkeys[2];
+		uint32_t right1 = load32_le(block + 12) ^ Subkeys[3];
 		uint32_t newl0, newl1;
 
 		twofish_round( 0, left0, left1, right0, right1, newl0, newl1, this);
@@ -277,19 +282,19 @@ FORCE_INLINE void twofish_invRound(int i, uint32_t l0, uint32_t l1, uint32_t r0,
 		left0 ^= Subkeys[4]; left1 ^= Subkeys[5];
 		newl0 ^= Subkeys[6]; newl1 ^= Subkeys[7];
 
-		BlockCipher::store32_le(block, left0);
-		BlockCipher::store32_le(block + 4, left1);
-		BlockCipher::store32_le(block + 8, newl0);
-		BlockCipher::store32_le(block + 12, newl1);
+		store32_le(block, left0);
+		store32_le(block + 4, left1);
+		store32_le(block + 8, newl0);
+		store32_le(block + 12, newl1);
 	}
 
 	void Twofish::decryptBlock(uint8_t *block) const
 	{
 		requireKey();
-		uint32_t left0 = BlockCipher::load32_le(block) ^ Subkeys[4];
-		uint32_t left1 = BlockCipher::load32_le(block + 4) ^ Subkeys[5];
-		uint32_t right0 = BlockCipher::load32_le(block + 8) ^ Subkeys[6];
-		uint32_t right1 = BlockCipher::load32_le(block + 12) ^ Subkeys[7];
+		uint32_t left0 = load32_le(block) ^ Subkeys[4];
+		uint32_t left1 = load32_le(block + 4) ^ Subkeys[5];
+		uint32_t right0 = load32_le(block + 8) ^ Subkeys[6];
+		uint32_t right1 = load32_le(block + 12) ^ Subkeys[7];
 		uint32_t newl0, newl1;
 
 		twofish_invRound(15, left0, left1, right0, right1, newl0, newl1, this);
@@ -312,21 +317,23 @@ FORCE_INLINE void twofish_invRound(int i, uint32_t l0, uint32_t l1, uint32_t r0,
 		left0 ^= Subkeys[0]; left1 ^= Subkeys[1];
 		newl0 ^= Subkeys[2]; newl1 ^= Subkeys[3];
 
-		BlockCipher::store32_le(block, left0);
-		BlockCipher::store32_le(block + 4, left1);
-		BlockCipher::store32_le(block + 8, newl0);
-		BlockCipher::store32_le(block + 12, newl1);
+		store32_le(block, left0);
+		store32_le(block + 4, left1);
+		store32_le(block + 8, newl0);
+		store32_le(block + 12, newl1);
 	}
 
 	
 
 	
-	int Twofish::blockSize() const
+	size_t Twofish::blockSize() const noexcept
 	{
 		return 16;
 	}
 
-	std::vector<uint8_t> Twofish::encrypt(std::vector<uint8_t> plt, std::vector<uint8_t> iv) const
+	std::vector<uint8_t> Twofish::encrypt(std::span<const uint8_t> plt, std::span<const uint8_t> iv) const
 	{
 		return encryptMode(plt, BlockMode::CBC, Padding::PKCS7, iv);
 	}
+
+} // namespace block

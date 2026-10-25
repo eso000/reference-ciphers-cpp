@@ -6,6 +6,8 @@
 #include "vectors.h"
 #include "block/AES.h"
 
+using namespace block;
+
 class AESSuite : public CipherTestBase
 {
 public:

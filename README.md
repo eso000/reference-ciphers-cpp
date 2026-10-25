@@ -1,11 +1,11 @@
 # reference-ciphers-cpp
 
 [![CI](https://github.com/eso000/reference-ciphers-cpp/actions/workflows/ci.yml/badge.svg)](https://github.com/eso000/reference-ciphers-cpp/actions/workflows/ci.yml)
-[![C++17](https://img.shields.io/badge/C%2B%2B-C%2B%2B17-blue)](https://isocpp.org/)
+[![C++20](https://img.shields.io/badge/C%2B%2B-C%2B%2B20-blue)](https://isocpp.org/)
 ![Dependencies: none](https://img.shields.io/badge/dependencies-none-brightgreen)
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
 
-From-scratch, dependency-free reference implementations of five classic block ciphers in C++17 — AES, DES, Blowfish, Twofish and Serpent — together with the six classic modes of operation and the usual padding schemes. Every cipher is checked against its official published test vectors.
+From-scratch, dependency-free reference implementations of five classic block ciphers in C++20 — AES, DES, Blowfish, Twofish and Serpent — together with the six classic modes of operation and the usual padding schemes. Every cipher is checked against its official published test vectors.
 
 This is the C++ sibling of [`refciphers`](https://github.com/eso000/reference-ciphers-python) and [`reference-ciphers-c`](https://github.com/eso000/reference-ciphers-c). The implementations are developed with the same test vectors and exercise the same algorithms.
 
@@ -46,13 +46,14 @@ Six modes of operation are shared by every cipher through the `BlockCipher` base
 ## Design
 
 - **Object-oriented API**: Each cipher inherits from the abstract `BlockCipher` base class, which provides shared bit manipulation, endianness helpers, and mode implementations.
-- **Shared infrastructure**: Bitwise helpers (`rotl`, `rotr`, byte extraction, big/little-endian load/store) live in `BlockCipher` to avoid duplication across implementations.
+- **Shared infrastructure**: Bitwise helpers (`rotl`, `rotr`, byte extraction, big/little-endian load/store) are free functions in the private `src/bits.h` (`block::detail`), shared by the cipher implementations instead of being copied into each one.
+- **Spans, not pointers**: The mode methods take `std::span` (`encryptCBC(data, iv)`), so a buffer and its length travel together. Everything lives in the `block` namespace.
 - **Optimized implementations**: AES uses T-tables for efficient round computation; hot paths are marked with `__attribute__((always_inline))` where beneficial.
 - **Unified testing**: A shared `TestBase` framework and centralized test vectors (`tests/vectors.h`) provide consistent known-answer and round-trip testing across all ciphers.
 
 ## Requirements
 
-- A C++17 compiler (tested with g++). No third-party libraries, no runtime dependencies.
+- A C++20 compiler with `<span>` and `<bit>` (tested with g++; GCC 10+ or Clang 10+). No third-party libraries, no runtime dependencies.
 - `make` to build.
 
 ## Build and test
@@ -68,17 +69,17 @@ make clean    # remove build/
 You can also override the compiler:
 
 ```bash
-make CXX=clang++ CXXFLAGS="-std=c++17 -O2 -Wall -Wextra -Wpedantic" test
+make CXX=clang++ CXXFLAGS="-std=c++20 -O2 -Wall -Wextra -Wpedantic" test
 ```
 
 For stricter builds (warnings as errors, sanitizers):
 
 ```bash
 # Warnings as errors
-make CXX=g++ CXXFLAGS="-std=c++17 -O2 -Wall -Wextra -Wpedantic -Werror" test
+make CXX=g++ CXXFLAGS="-std=c++20 -O2 -Wall -Wextra -Wpedantic -Werror" test
 
 # Address and undefined-behaviour sanitizers
-make CXX=clang++ CXXFLAGS="-std=c++17 -O1 -g -Wall -Wextra -Wpedantic -Werror -fsanitize=address,undefined" test
+make CXX=clang++ CXXFLAGS="-std=c++20 -O1 -g -Wall -Wextra -Wpedantic -Werror -fsanitize=address,undefined" test
 ```
 
 ## Example usage
@@ -91,7 +92,7 @@ make CXX=clang++ CXXFLAGS="-std=c++17 -O1 -g -Wall -Wextra -Wpedantic -Werror -f
 #include "block/BlockCipher.h"
 
 int main() {
-    AES aes;
+    block::AES aes;
     // Key from hex string
     aes.generateKeys("2b7e151628aed2a6abf7158809cf4f3c");
 
@@ -105,16 +106,16 @@ int main() {
     std::vector<uint8_t> iv(16, 0x00);
 
     // Encrypt with CBC + PKCS7 padding
-    auto ct = aes.encryptMode(pt, BlockMode::CBC, Padding::PKCS7, iv);
+    auto ct = aes.encryptMode(pt, block::BlockMode::CBC, block::Padding::PKCS7, iv);
 
     // Decrypt
-    auto pt2 = aes.decryptMode(ct, BlockMode::CBC, Padding::PKCS7, iv);
+    auto pt2 = aes.decryptMode(ct, block::BlockMode::CBC, block::Padding::PKCS7, iv);
 
     return 0;
 }
 ```
 
-Individual ciphers can also be used at the block level via `encryptBlock()`/`decryptBlock()`, and the base class provides mode-specific methods (`encryptCBC()`, `decryptECB()`, etc.). The library also supports file encryption/decryption via `encrypt_File()` and `decrypt_File()` methods.
+Individual ciphers can also be used at the block level via `encryptBlock()`/`decryptBlock()`, and the base class provides in-place mode methods that take a `std::span` (`encryptCBC(data, iv)`, `decryptECB(data)`, etc.). The library also supports file encryption/decryption via `encrypt_File()` and `decrypt_File()` methods.
 
 ## Testing and verification
 
@@ -133,7 +134,7 @@ The test vectors in `tests/vectors.h` include provenance notes documenting their
 .
 ├── .github/workflows/ci.yml   # GCC/Clang + ASan/UBSan CI
 ├── include/block/             # Public headers (BlockCipher, AES, DES, Blowfish, Twofish, Serpent, Padding)
-├── src/                       # Implementations
+├── src/                       # Implementations, plus private helpers (bits.h, force_inline.h)
 ├── tests/                     # Test suites and shared test infrastructure
 ├── Makefile                   # Build configuration
 ├── README.md

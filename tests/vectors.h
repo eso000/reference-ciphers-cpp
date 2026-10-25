@@ -1,5 +1,4 @@
-#ifndef VECTORS_HEADER
-#define VECTORS_HEADER
+#pragma once
 
 #include <cstddef>
 #include <vector>
@@ -203,4 +202,3 @@ static const BlockKat SERPENT_CBC[] = {
 		"2aa5a2ff0c27a0f9590f6167e9e779d861fc6463d2e956091e91677d4f38860c"},
 };
 
-#endif

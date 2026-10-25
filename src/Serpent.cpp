@@ -1,12 +1,16 @@
 #include <vector>
 #include <string>
 #include <stdexcept>
-#include <fstream>
 
 #include "block/Serpent.h"
 #include <iterator>
 #include "Serpent_data.h"
+#include "bits.h"
 #include "force_inline.h"
+
+namespace block {
+
+using namespace detail;
 
 Serpent::Serpent()
 {
@@ -24,31 +28,31 @@ Serpent::Serpent()
 /* The ten steps of the paper's linear transformation, in its order. */
 FORCE_INLINE void serpent_LT(uint32_t *x0, uint32_t *x1, uint32_t *x2, uint32_t *x3)
 {
-	*x0 = BlockCipher::rotl(*x0, 13);
-	*x2 = BlockCipher::rotl(*x2, 3);
+	*x0 = rotl(*x0, 13);
+	*x2 = rotl(*x2, 3);
 	*x1 = *x1 ^ *x0 ^ *x2;
 	*x3 = *x3 ^ *x2 ^ (*x0 << 3);
-	*x1 = BlockCipher::rotl(*x1, 1);
-	*x3 = BlockCipher::rotl(*x3, 7);
+	*x1 = rotl(*x1, 1);
+	*x3 = rotl(*x3, 7);
 	*x0 = *x0 ^ *x1 ^ *x3;
 	*x2 = *x2 ^ *x3 ^ (*x1 << 7);
-	*x0 = BlockCipher::rotl(*x0, 5);
-	*x2 = BlockCipher::rotl(*x2, 22);
+	*x0 = rotl(*x0, 5);
+	*x2 = rotl(*x2, 22);
 }
 
 /* The same ten steps in reverse order, with every rotation turned around. */
 FORCE_INLINE void serpent_invLT(uint32_t *x0, uint32_t *x1, uint32_t *x2, uint32_t *x3)
 {
-	*x2 = BlockCipher::rotr(*x2, 22);
-	*x0 = BlockCipher::rotr(*x0, 5);
+	*x2 = rotr(*x2, 22);
+	*x0 = rotr(*x0, 5);
 	*x2 = *x2 ^ *x3 ^ (*x1 << 7);
 	*x0 = *x0 ^ *x1 ^ *x3;
-	*x3 = BlockCipher::rotr(*x3, 7);
-	*x1 = BlockCipher::rotr(*x1, 1);
+	*x3 = rotr(*x3, 7);
+	*x1 = rotr(*x1, 1);
 	*x3 = *x3 ^ *x2 ^ (*x0 << 3);
 	*x1 = *x1 ^ *x0 ^ *x2;
-	*x2 = BlockCipher::rotr(*x2, 3);
-	*x0 = BlockCipher::rotr(*x0, 13);
+	*x2 = rotr(*x2, 3);
+	*x0 = rotr(*x0, 13);
 }
 
 FORCE_INLINE void serpent_addRoundKey(uint32_t *x0, uint32_t *x1, uint32_t *x2, uint32_t *x3, int i, const Serpent *s)
@@ -407,7 +411,7 @@ static uint32_t serpentWordFromHex(const std::string &s)
        key words are w_-8 .. w_-1, so w[8] holds w_0. */
     for(int i=8; i< 140;++i){
       wi = w[i - 8]^ w[i - 5]^ w[i - 3]^ w[i - 1]^ 0x9E3779B9u ^ (uint32_t)(i - 8);
-      wi = BlockCipher::rotl(wi,11);
+      wi = rotl(wi,11);
       w[i] = wi;
      }
      /* Subkey i is prekeys 4i .. 4i+3 through S-box (3 - i) mod 8, which is the
@@ -516,7 +520,7 @@ static uint32_t serpentWordFromHex(const std::string &s)
       serpentStore32(x3, w3);
 	}
 
-	int Serpent::blockSize() const
+	size_t Serpent::blockSize() const noexcept
 	{
 		return 16;
 	}
@@ -533,12 +537,14 @@ static uint32_t serpentWordFromHex(const std::string &s)
 		decrypt_block(block, block + 4, block + 8, block + 12);
 	}
 
-	std::vector<uint8_t> Serpent::encrypt(std::vector<uint8_t> plt) const
+	std::vector<uint8_t> Serpent::encrypt(std::span<const uint8_t> plt) const
 	{
 		return encryptMode(plt, BlockMode::ECB, Padding::PKCS7);
 	}
 
-	std::vector<uint8_t> Serpent::decrypt(std::vector<uint8_t> plt) const
+	std::vector<uint8_t> Serpent::decrypt(std::span<const uint8_t> plt) const
 	{
 		return decryptMode(plt, BlockMode::ECB, Padding::PKCS7);
 	}
+
+} // namespace block

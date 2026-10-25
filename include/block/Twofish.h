@@ -1,13 +1,15 @@
-#ifndef TWIFISH_HEADER
-#define TWIFISH_HEADER
+#pragma once
 
-#include <stdint.h>
+#include <cstdint>
 #include <vector>
+#include <span>
 #include <string>
 
 #include "block/BlockCipher.h"
 
-class Twofish : public BlockCipher{
+namespace block {
+
+class Twofish final : public BlockCipher {
 public:
 	Twofish();
 	std::vector<std::vector<uint8_t>> RS;
@@ -36,14 +38,14 @@ public:
 
 	void generateKeys(const std::vector<uint8_t>& key);
 
-	int blockSize() const;
+	size_t blockSize() const noexcept override;
 
-	void encryptBlock(uint8_t *block) const;
+	void encryptBlock(uint8_t *block) const override;
 
-	void decryptBlock(uint8_t *block) const;
+	void decryptBlock(uint8_t *block) const override;
 
-	std::vector<uint8_t> encrypt(std::vector<uint8_t> plt, std::vector<uint8_t> iv) const;
+	std::vector<uint8_t> encrypt(std::span<const uint8_t> plt, std::span<const uint8_t> iv) const;
 
 };
 
-#endif
+} // namespace block

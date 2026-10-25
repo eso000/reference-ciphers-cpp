@@ -1,16 +1,20 @@
 #include <vector>
 #include <string>
-#include <fstream>
 #include <stdexcept>
 
 #include "block/Blowfish.h"
 #include <iterator>
 #include "Blowfish_data.h"
+#include "bits.h"
 #include "force_inline.h"
+
+namespace block {
+
+using namespace detail;
 
 FORCE_INLINE uint32_t blowfish_F(const Blowfish *bf, uint32_t x)
 {
-	return ((bf->SBoxes0[BlockCipher::byte0(x)] + bf->SBoxes1[BlockCipher::byte1(x)]) ^ bf->SBoxes2[BlockCipher::byte2(x)]) + bf->SBoxes3[BlockCipher::byte3(x)];
+	return ((bf->SBoxes0[byte0(x)] + bf->SBoxes1[byte1(x)]) ^ bf->SBoxes2[byte2(x)]) + bf->SBoxes3[byte3(x)];
 }
 
 FORCE_INLINE void blowfish_round(uint32_t *l, uint32_t *r, int i, const Blowfish *bf)
@@ -21,8 +25,8 @@ FORCE_INLINE void blowfish_round(uint32_t *l, uint32_t *r, int i, const Blowfish
 
 	static void blowfishEncryptRaw(const Blowfish *bf, uint8_t *block)
 	{
-		uint32_t left = BlockCipher::load32_be(block);
-		uint32_t right = BlockCipher::load32_be(block + 4);
+		uint32_t left = load32_be(block);
+		uint32_t right = load32_be(block + 4);
 
 		blowfish_round(&left, &right, 0, bf);  blowfish_round(&right, &left, 1, bf);
 		blowfish_round(&left, &right, 2, bf);  blowfish_round(&right, &left, 3, bf);
@@ -35,8 +39,8 @@ FORCE_INLINE void blowfish_round(uint32_t *l, uint32_t *r, int i, const Blowfish
 		left ^= bf->Subkeys[16];
 		right ^= bf->Subkeys[17];
 
-		BlockCipher::store32_be(block + 4, left);
-		BlockCipher::store32_be(block, right);
+		store32_be(block + 4, left);
+		store32_be(block, right);
 	}
 
 	void Blowfish::encryptBlock(uint8_t *block) const
@@ -49,8 +53,8 @@ FORCE_INLINE void blowfish_round(uint32_t *l, uint32_t *r, int i, const Blowfish
 	void Blowfish::decryptBlock(uint8_t *block) const
 	{
 		requireKey();
-		uint32_t left = BlockCipher::load32_be(block);
-		uint32_t right = BlockCipher::load32_be(block + 4);
+		uint32_t left = load32_be(block);
+		uint32_t right = load32_be(block + 4);
 
 		blowfish_round(&left, &right, 17, this); blowfish_round(&right, &left, 16, this);
 		blowfish_round(&left, &right, 15, this); blowfish_round(&right, &left, 14, this);
@@ -63,8 +67,8 @@ FORCE_INLINE void blowfish_round(uint32_t *l, uint32_t *r, int i, const Blowfish
 		left ^= Subkeys[1];
 		right ^= Subkeys[0];
 
-		BlockCipher::store32_be(block + 4, left);
-		BlockCipher::store32_be(block, right);
+		store32_be(block + 4, left);
+		store32_be(block, right);
 	}
 
 
@@ -126,13 +130,15 @@ FORCE_INLINE void blowfish_round(uint32_t *l, uint32_t *r, int i, const Blowfish
 		keySet = true;
 	}	
 	
-	int Blowfish::blockSize() const
+	size_t Blowfish::blockSize() const noexcept
 	{
 		return 8;
 	}
 
-	std::vector<uint8_t> Blowfish::encrypt(std::vector<uint8_t> plt, std::vector<uint8_t> iv) const
+	std::vector<uint8_t> Blowfish::encrypt(std::span<const uint8_t> plt, std::span<const uint8_t> iv) const
 	{
 		(void) iv;
 		return encryptMode(plt, BlockMode::ECB, Padding::PKCS7);
 	}
+
+} // namespace block

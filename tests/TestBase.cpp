@@ -1,5 +1,7 @@
 #include "TestBase.h"
 
+using block::BlockCipher;
+
 int g_fails = 0;
 
 std::vector<uint8_t> hexToVec(const char *hex)
@@ -37,7 +39,7 @@ void CipherTestBase::runEcbKats(const std::vector<BlockKat> &kats)
 	{
 		std::unique_ptr<BlockCipher> c = makeKeyed(k.key);
 		std::vector<uint8_t> got = hexToVec(k.plain);
-		c->encryptECB(&got[0], (int)got.size());
+		c->encryptECB(got);
 		std::string name = k.name + " encrypt";
 		CHECK(compareVector(got, hexToVec(k.cipher)), name.c_str());
 	}
@@ -49,7 +51,7 @@ void CipherTestBase::runEcbKatsDec(const std::vector<BlockKat> &kats)
 	{
 		std::unique_ptr<BlockCipher> c = makeKeyed(k.key);
 		std::vector<uint8_t> got = hexToVec(k.cipher);
-		c->decryptECB(&got[0], (int)got.size());
+		c->decryptECB(got);
 		std::string name = k.name + " decrypt";
 		CHECK(compareVector(got, hexToVec(k.plain)), name.c_str());
 	}
@@ -66,11 +68,11 @@ void CipherTestBase::runEcbRoundTrip(const char *keyHex, int len, const char *la
 	w = v;
 
 	char name[160];
-	c->encryptECB(&v[0], (int)v.size());
+	c->encryptECB(v);
 	snprintf(name, sizeof(name), "%s ciphertext differs from plaintext", label);
 	CHECK(!compareVector(v, w), name);
 
-	d->decryptECB(&v[0], (int)v.size());
+	d->decryptECB(v);
 	snprintf(name, sizeof(name), "%s encrypt+decrypt restores plaintext", label);
 	CHECK(compareVector(v, w), name);
 }

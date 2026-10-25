@@ -1,13 +1,15 @@
-#ifndef DES_HEADER
-#define DES_HEADER
+#pragma once
 
-#include <stdint.h>
+#include <cstdint>
 #include <vector>
+#include <span>
 #include <string>
 
 #include "block/BlockCipher.h"
 
-class DES : public BlockCipher{
+namespace block {
+
+class DES final : public BlockCipher {
 public:
 
 	DES(bool useAlt = true);
@@ -50,16 +52,16 @@ public:
 
 	void generateKeys(std::string key);
 
-	int blockSize() const;
+	size_t blockSize() const noexcept override;
 
-	void encryptBlock(uint8_t *block) const;
+	void encryptBlock(uint8_t *block) const override;
 
-	void decryptBlock(uint8_t *block) const;
+	void decryptBlock(uint8_t *block) const override;
 
-	std::vector<uint8_t> encrypt(std::vector<uint8_t> plt) const;
+	std::vector<uint8_t> encrypt(std::span<const uint8_t> plt) const;
 
-	std::vector<uint8_t> decrypt(std::vector<uint8_t> plt) const;
+	std::vector<uint8_t> decrypt(std::span<const uint8_t> plt) const;
 
 };
 
-#endif
+} // namespace block

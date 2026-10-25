@@ -1,21 +1,41 @@
-#include <cstring>
+#include <algorithm>
+#include <array>
 #include <fstream>
 #include <iterator>
 #include <stdexcept>
 
 #include "block/BlockCipher.h"
 
-static void xorBlock(uint8_t *dst, const uint8_t *src, int n)
+namespace block {
+
+namespace {
+
+/* The largest block size of any cipher here (AES, Twofish and Serpent). */
+constexpr size_t MAX_BLOCK = 16;
+
+using Block = std::array<uint8_t, MAX_BLOCK>;
+
+void xorBlock(uint8_t *dst, const uint8_t *src, size_t n)
 {
-	for (int i = 0; i < n; ++i)
+	for (size_t i = 0; i < n; ++i)
 		dst[i] ^= src[i];
 }
 
-static void incrementCounter(uint8_t *ctr, int n)
+void incrementCounter(uint8_t *ctr, size_t n)
 {
-	for (int i = n - 1; i >= 0; --i)
+	for (size_t i = n; i-- > 0;)
 		if (++ctr[i] != 0)
 			break;
+}
+
+/* Copies the first n bytes of src into a fresh scratch block. */
+Block loadBlock(const uint8_t *src, size_t n)
+{
+	Block b{};
+	std::copy_n(src, n, b.begin());
+	return b;
+}
+
 }
 
 void BlockCipher::requireKey() const
@@ -24,75 +44,88 @@ void BlockCipher::requireKey() const
 		throw std::logic_error("key schedule is not initialized; call generateKeys first");
 }
 
-void BlockCipher::encryptECB(uint8_t *plt, int len) const
+void BlockCipher::requireBlockIV(std::span<const uint8_t> iv) const
 {
-	requireKey();
-	int bs = blockSize();
-	for (uint8_t *i = plt; i + bs <= plt + len; i += bs)
-		encryptBlock(i);
+	if (iv.size() != blockSize())
+		throw std::invalid_argument("IV must be exactly " + std::to_string(blockSize())
+				+ " bytes, got " + std::to_string(iv.size()));
 }
 
-void BlockCipher::decryptECB(uint8_t *plt, int len) const
+void BlockCipher::encryptECB(std::span<uint8_t> data) const
 {
 	requireKey();
-	int bs = blockSize();
-	for (uint8_t *i = plt; i + bs <= plt + len; i += bs)
-		decryptBlock(i);
+	const size_t bs = blockSize();
+	for (size_t off = 0; off + bs <= data.size(); off += bs)
+		encryptBlock(data.data() + off);
 }
 
-void BlockCipher::encryptCBC(uint8_t *plt, int len, uint8_t *iv) const
+void BlockCipher::decryptECB(std::span<uint8_t> data) const
 {
 	requireKey();
-	int bs = blockSize();
-	for (uint8_t *i = plt; i + bs <= plt + len; i += bs)
+	const size_t bs = blockSize();
+	for (size_t off = 0; off + bs <= data.size(); off += bs)
+		decryptBlock(data.data() + off);
+}
+
+void BlockCipher::encryptCBC(std::span<uint8_t> data, std::span<const uint8_t> iv) const
+{
+	requireKey();
+	requireBlockIV(iv);
+	const size_t bs = blockSize();
+	const uint8_t *prev = iv.data();
+	for (size_t off = 0; off + bs <= data.size(); off += bs)
 	{
-		xorBlock(i, iv, bs);
-		encryptBlock(i);
-		iv = i;
+		uint8_t *blk = data.data() + off;
+		xorBlock(blk, prev, bs);
+		encryptBlock(blk);
+		prev = blk;
 	}
 }
 
-void BlockCipher::decryptCBC(uint8_t *plt, int len, uint8_t *iv) const
+void BlockCipher::decryptCBC(std::span<uint8_t> data, std::span<uint8_t> iv) const
 {
 	requireKey();
-	int bs = blockSize();
-	uint8_t t[16];
-	for (uint8_t *i = plt; i + bs <= plt + len; i += bs)
+	requireBlockIV(iv);
+	const size_t bs = blockSize();
+	for (size_t off = 0; off + bs <= data.size(); off += bs)
 	{
-		memcpy(t, i, bs);
-		decryptBlock(i);
-		xorBlock(i, iv, bs);
-		memcpy(iv, t, bs);
+		uint8_t *blk = data.data() + off;
+		const Block cipherBlock = loadBlock(blk, bs);
+		decryptBlock(blk);
+		xorBlock(blk, iv.data(), bs);
+		std::copy_n(cipherBlock.begin(), bs, iv.begin());
 	}
 }
 
-void BlockCipher::encryptPCBC(uint8_t *plt, int len, uint8_t *iv) const
+void BlockCipher::encryptPCBC(std::span<uint8_t> data, std::span<uint8_t> iv) const
 {
 	requireKey();
-	int bs = blockSize();
-	uint8_t t[16];
-	for (uint8_t *i = plt; i + bs <= plt + len; i += bs)
+	requireBlockIV(iv);
+	const size_t bs = blockSize();
+	for (size_t off = 0; off + bs <= data.size(); off += bs)
 	{
-		memcpy(t, i, bs);
-		xorBlock(i, iv, bs);
-		encryptBlock(i);
-		xorBlock(t, i, bs);
-		memcpy(iv, t, bs);
+		uint8_t *blk = data.data() + off;
+		Block next = loadBlock(blk, bs);
+		xorBlock(blk, iv.data(), bs);
+		encryptBlock(blk);
+		xorBlock(next.data(), blk, bs);
+		std::copy_n(next.begin(), bs, iv.begin());
 	}
 }
 
-void BlockCipher::decryptPCBC(uint8_t *plt, int len, uint8_t *iv) const
+void BlockCipher::decryptPCBC(std::span<uint8_t> data, std::span<uint8_t> iv) const
 {
 	requireKey();
-	int bs = blockSize();
-	uint8_t t[16];
-	for (uint8_t *i = plt; i + bs <= plt + len; i += bs)
+	requireBlockIV(iv);
+	const size_t bs = blockSize();
+	for (size_t off = 0; off + bs <= data.size(); off += bs)
 	{
-		memcpy(t, i, bs);
-		decryptBlock(i);
-		xorBlock(i, iv, bs);
-		xorBlock(t, i, bs);
-		memcpy(iv, t, bs);
+		uint8_t *blk = data.data() + off;
+		Block next = loadBlock(blk, bs);
+		decryptBlock(blk);
+		xorBlock(blk, iv.data(), bs);
+		xorBlock(next.data(), blk, bs);
+		std::copy_n(next.begin(), bs, iv.begin());
 	}
 }
 
@@ -100,104 +133,100 @@ void BlockCipher::decryptPCBC(uint8_t *plt, int len, uint8_t *iv) const
    more and only the bytes that remain are XORed. The feedback value that
    would follow the truncated block is never used, so it does not have to be
    computed or padded. */
-void BlockCipher::encryptCFB(uint8_t *plt, int len, uint8_t *iv) const
+void BlockCipher::encryptCFB(std::span<uint8_t> data, std::span<const uint8_t> iv) const
 {
 	requireKey();
-	int bs = blockSize();
-	uint8_t reg[16];
-	uint8_t *i = plt;
-	uint8_t *end = plt + len;
-	memcpy(reg, iv, bs);
-	for (; end - i >= bs; i += bs)
+	requireBlockIV(iv);
+	const size_t bs = blockSize();
+	Block reg = loadBlock(iv.data(), bs);
+	size_t off = 0;
+	for (; data.size() - off >= bs; off += bs)
 	{
-		encryptBlock(reg);
-		xorBlock(i, reg, bs);
-		memcpy(reg, i, bs);
+		uint8_t *blk = data.data() + off;
+		encryptBlock(reg.data());
+		xorBlock(blk, reg.data(), bs);
+		std::copy_n(blk, bs, reg.begin());
 	}
-	if (i < end)
+	if (off < data.size())
 	{
-		encryptBlock(reg);
-		xorBlock(i, reg, (int) (end - i));
+		encryptBlock(reg.data());
+		xorBlock(data.data() + off, reg.data(), data.size() - off);
 	}
 }
 
-void BlockCipher::decryptCFB(uint8_t *plt, int len, uint8_t *iv) const
+void BlockCipher::decryptCFB(std::span<uint8_t> data, std::span<const uint8_t> iv) const
 {
 	requireKey();
-	int bs = blockSize();
-	uint8_t reg[16];
-	uint8_t t[16];
-	uint8_t *i = plt;
-	uint8_t *end = plt + len;
-	memcpy(reg, iv, bs);
-	for (; end - i >= bs; i += bs)
+	requireBlockIV(iv);
+	const size_t bs = blockSize();
+	Block reg = loadBlock(iv.data(), bs);
+	size_t off = 0;
+	for (; data.size() - off >= bs; off += bs)
 	{
-		encryptBlock(reg);
-		memcpy(t, i, bs);
-		xorBlock(i, reg, bs);
-		memcpy(reg, t, bs);
+		uint8_t *blk = data.data() + off;
+		encryptBlock(reg.data());
+		const Block cipherBlock = loadBlock(blk, bs);
+		xorBlock(blk, reg.data(), bs);
+		reg = cipherBlock;
 	}
-	if (i < end)
+	if (off < data.size())
 	{
-		encryptBlock(reg);
-		xorBlock(i, reg, (int) (end - i));
+		encryptBlock(reg.data());
+		xorBlock(data.data() + off, reg.data(), data.size() - off);
 	}
 }
 
-void BlockCipher::encryptOFB(uint8_t *plt, int len, uint8_t *iv) const
+void BlockCipher::encryptOFB(std::span<uint8_t> data, std::span<const uint8_t> iv) const
 {
 	requireKey();
-	int bs = blockSize();
-	uint8_t reg[16];
-	uint8_t *i = plt;
-	uint8_t *end = plt + len;
-	memcpy(reg, iv, bs);
-	for (; end - i >= bs; i += bs)
+	requireBlockIV(iv);
+	const size_t bs = blockSize();
+	Block reg = loadBlock(iv.data(), bs);
+	size_t off = 0;
+	for (; data.size() - off >= bs; off += bs)
 	{
-		encryptBlock(reg);
-		xorBlock(i, reg, bs);
+		encryptBlock(reg.data());
+		xorBlock(data.data() + off, reg.data(), bs);
 	}
-	if (i < end)
+	if (off < data.size())
 	{
-		encryptBlock(reg);
-		xorBlock(i, reg, (int) (end - i));
-	}
-}
-
-void BlockCipher::decryptOFB(uint8_t *plt, int len, uint8_t *iv) const
-{
-	requireKey();
-	encryptOFB(plt, len, iv);
-}
-
-void BlockCipher::encryptCTR(uint8_t *plt, int len, uint8_t *iv) const
-{
-	requireKey();
-	int bs = blockSize();
-	uint8_t ctr[16];
-	uint8_t ks[16];
-	uint8_t *i = plt;
-	uint8_t *end = plt + len;
-	memcpy(ctr, iv, bs);
-	for (; end - i >= bs; i += bs)
-	{
-		memcpy(ks, ctr, bs);
-		encryptBlock(ks);
-		xorBlock(i, ks, bs);
-		incrementCounter(ctr, bs);
-	}
-	if (i < end)
-	{
-		memcpy(ks, ctr, bs);
-		encryptBlock(ks);
-		xorBlock(i, ks, (int) (end - i));
+		encryptBlock(reg.data());
+		xorBlock(data.data() + off, reg.data(), data.size() - off);
 	}
 }
 
-void BlockCipher::decryptCTR(uint8_t *plt, int len, uint8_t *iv) const
+void BlockCipher::decryptOFB(std::span<uint8_t> data, std::span<const uint8_t> iv) const
 {
 	requireKey();
-	encryptCTR(plt, len, iv);
+	encryptOFB(data, iv);
+}
+
+void BlockCipher::encryptCTR(std::span<uint8_t> data, std::span<const uint8_t> iv) const
+{
+	requireKey();
+	requireBlockIV(iv);
+	const size_t bs = blockSize();
+	Block ctr = loadBlock(iv.data(), bs);
+	size_t off = 0;
+	for (; data.size() - off >= bs; off += bs)
+	{
+		Block ks = ctr;
+		encryptBlock(ks.data());
+		xorBlock(data.data() + off, ks.data(), bs);
+		incrementCounter(ctr.data(), bs);
+	}
+	if (off < data.size())
+	{
+		Block ks = ctr;
+		encryptBlock(ks.data());
+		xorBlock(data.data() + off, ks.data(), data.size() - off);
+	}
+}
+
+void BlockCipher::decryptCTR(std::span<uint8_t> data, std::span<const uint8_t> iv) const
+{
+	requireKey();
+	encryptCTR(data, iv);
 }
 
 /* Block modes pad before encryption. PKCS7, ANSIX923 and ISO78164 always add
@@ -214,7 +243,7 @@ static bool needsPadding(BlockMode mode)
 /* ECB takes no IV; every chained mode takes exactly one block. A wrong-sized
    IV used to be silently truncated or zero-extended, which made a caller's
    mistake look like a successful encryption. */
-void BlockCipher::validateIV(const std::vector<uint8_t> &iv, BlockMode mode) const
+void BlockCipher::validateIV(std::span<const uint8_t> iv, BlockMode mode) const
 {
 	if (mode == BlockMode::ECB)
 	{
@@ -222,73 +251,77 @@ void BlockCipher::validateIV(const std::vector<uint8_t> &iv, BlockMode mode) con
 			throw std::invalid_argument("ECB mode does not use an IV");
 		return;
 	}
-	if ((int) iv.size() != blockSize())
-		throw std::invalid_argument("IV must be exactly " + std::to_string(blockSize())
-				+ " bytes, got " + std::to_string(iv.size()));
+	requireBlockIV(iv);
 }
 
-std::vector<uint8_t> BlockCipher::encryptMode(std::vector<uint8_t> plt, BlockMode mode,
-		Padding padding, std::vector<uint8_t> iv) const
+std::vector<uint8_t> BlockCipher::encryptMode(std::span<const uint8_t> plt, BlockMode mode,
+		Padding padding, std::span<const uint8_t> iv) const
 {
 	requireKey();
 	validateIV(iv, mode);
 
-	int bs = blockSize();
+	std::vector<uint8_t> out(plt.begin(), plt.end());
+	std::vector<uint8_t> chain(iv.begin(), iv.end());
+
+	const size_t bs = blockSize();
 	if (needsPadding(mode))
 	{
-		if (padding == Padding::None && (int) plt.size() % bs != 0)
+		if (padding == Padding::None && out.size() % bs != 0)
 			throw std::invalid_argument("Padding::None requires block-aligned input");
-		int missing = (padding == Padding::Zeros)
-				? (bs - (int) plt.size() % bs) % bs
-				: missingFor((int) plt.size(), bs);
-		pad(plt, missing, padding);
+		const size_t missing = (padding == Padding::Zeros)
+				? (bs - out.size() % bs) % bs
+				: missingFor(out.size(), bs);
+		pad(out, missing, padding);
 	}
-	if (plt.empty())
-		return plt;
+	if (out.empty())
+		return out;
 
 	switch (mode)
 	{
-		case BlockMode::ECB: encryptECB(&plt[0], (int) plt.size()); break;
-		case BlockMode::CBC: encryptCBC(&plt[0], (int) plt.size(), &iv[0]); break;
-		case BlockMode::PCBC: encryptPCBC(&plt[0], (int) plt.size(), &iv[0]); break;
-		case BlockMode::CFB: encryptCFB(&plt[0], (int) plt.size(), &iv[0]); break;
-		case BlockMode::OFB: encryptOFB(&plt[0], (int) plt.size(), &iv[0]); break;
-		case BlockMode::CTR: encryptCTR(&plt[0], (int) plt.size(), &iv[0]); break;
+		case BlockMode::ECB: encryptECB(out); break;
+		case BlockMode::CBC: encryptCBC(out, chain); break;
+		case BlockMode::PCBC: encryptPCBC(out, chain); break;
+		case BlockMode::CFB: encryptCFB(out, chain); break;
+		case BlockMode::OFB: encryptOFB(out, chain); break;
+		case BlockMode::CTR: encryptCTR(out, chain); break;
 	}
-	return plt;
+	return out;
 }
 
-std::vector<uint8_t> BlockCipher::decryptMode(std::vector<uint8_t> plt, BlockMode mode,
-		Padding padding, std::vector<uint8_t> iv) const
+std::vector<uint8_t> BlockCipher::decryptMode(std::span<const uint8_t> plt, BlockMode mode,
+		Padding padding, std::span<const uint8_t> iv) const
 {
 	requireKey();
 	validateIV(iv, mode);
 
-	int bs = blockSize();
-	if (plt.empty())
+	std::vector<uint8_t> out(plt.begin(), plt.end());
+	std::vector<uint8_t> chain(iv.begin(), iv.end());
+
+	const size_t bs = blockSize();
+	if (out.empty())
 	{
 		/* No ciphertext is valid only when the scheme does not need a
 		   padding block; a strict scheme must reject the empty message. */
-		if (needsPadding(mode) && !unpad(plt, padding, bs))
+		if (needsPadding(mode) && !unpad(out, padding, bs))
 			throw std::invalid_argument("invalid padding");
-		return plt;
+		return out;
 	}
 
-	if (needsPadding(mode) && (int) plt.size() % bs != 0)
+	if (needsPadding(mode) && out.size() % bs != 0)
 		throw std::invalid_argument("ciphertext is not block-aligned");
 
 	switch (mode)
 	{
-		case BlockMode::ECB: decryptECB(&plt[0], (int) plt.size()); break;
-		case BlockMode::CBC: decryptCBC(&plt[0], (int) plt.size(), &iv[0]); break;
-		case BlockMode::PCBC: decryptPCBC(&plt[0], (int) plt.size(), &iv[0]); break;
-		case BlockMode::CFB: decryptCFB(&plt[0], (int) plt.size(), &iv[0]); break;
-		case BlockMode::OFB: decryptOFB(&plt[0], (int) plt.size(), &iv[0]); break;
-		case BlockMode::CTR: decryptCTR(&plt[0], (int) plt.size(), &iv[0]); break;
+		case BlockMode::ECB: decryptECB(out); break;
+		case BlockMode::CBC: decryptCBC(out, chain); break;
+		case BlockMode::PCBC: decryptPCBC(out, chain); break;
+		case BlockMode::CFB: decryptCFB(out, chain); break;
+		case BlockMode::OFB: decryptOFB(out, chain); break;
+		case BlockMode::CTR: decryptCTR(out, chain); break;
 	}
-	if (needsPadding(mode) && !unpad(plt, padding, bs))
+	if (needsPadding(mode) && !unpad(out, padding, bs))
 		throw std::invalid_argument("invalid padding");
-	return plt;
+	return out;
 }
 
 static Padding filePadding(int p)
@@ -307,26 +340,19 @@ static void encryptFileImpl(const BlockCipher &c, const std::string &path)
 	std::ifstream input_file(path, std::ios::binary);
 	std::vector<uint8_t> vec((std::istreambuf_iterator<char>(input_file)), std::istreambuf_iterator<char>());
 	input_file.close();
-	int bs = c.blockSize();
-	int l = (int) vec.size();
-	Padding p = filePadding(c.padding);
-	int m = (p == Padding::Zeros && l % bs == 0) ? 0 : missingFor(l, bs);
-	if (m)
-		pad(vec, m, p);
+	const size_t bs = c.blockSize();
+	const Padding p = filePadding(c.padding);
+	const size_t m = (p == Padding::Zeros && vec.size() % bs == 0) ? 0 : missingFor(vec.size(), bs);
+	pad(vec, m, p);
 	if (!vec.empty())
 	{
 		if (c.mode == 1)
-		{
-			uint8_t iv[16];
-			memset(iv, 0xff, bs);
-			c.encryptCBC(&vec[0], (int) vec.size(), iv);
-		}
+			c.encryptCBC(vec, std::vector<uint8_t>(bs, 0xff));
 		else
-			c.encryptECB(&vec[0], (int) vec.size());
+			c.encryptECB(vec);
 	}
 	std::ofstream file(path);
-	if (!vec.empty())
-		file.write(reinterpret_cast<char*>(&vec[0]), vec.size());
+	file.write(reinterpret_cast<const char*>(vec.data()), static_cast<std::streamsize>(vec.size()));
 	file.close();
 }
 
@@ -339,17 +365,15 @@ static void decryptFileImpl(const BlockCipher &c, const std::string &path)
 	{
 		if (c.mode == 1)
 		{
-			uint8_t iv[16];
-			memset(iv, 0xff, c.blockSize());
-			c.decryptCBC(&vec[0], (int) vec.size(), iv);
+			std::vector<uint8_t> iv(c.blockSize(), 0xff);
+			c.decryptCBC(vec, iv);
 		}
 		else
-			c.decryptECB(&vec[0], (int) vec.size());
+			c.decryptECB(vec);
 	}
 	(void) unpad(vec, filePadding(c.padding), c.blockSize());
 	std::ofstream file(path);
-	if (!vec.empty())
-		file.write(reinterpret_cast<char*>(&vec[0]), vec.size());
+	file.write(reinterpret_cast<const char*>(vec.data()), static_cast<std::streamsize>(vec.size()));
 	file.close();
 }
 
@@ -370,3 +394,5 @@ void BlockCipher::decrypt_File(char* path) const
 	requireKey();
 	decryptFileImpl(*this, path);
 }
+
+} // namespace block

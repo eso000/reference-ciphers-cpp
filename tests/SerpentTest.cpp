@@ -6,6 +6,8 @@
 #include "vectors.h"
 #include "block/Serpent.h"
 
+using namespace block;
+
 class SerpentSuite : public CipherTestBase
 {
 public:
@@ -40,7 +42,7 @@ int main()
 		c.generateKeys(k.key);
 		std::vector<uint8_t> pt = hexToVec(SERPENT_TWO_BLOCK_PT), ct = hexToVec(k.cipher);
 		std::vector<uint8_t> tail(pt.begin() + 16, pt.end()), half(ct.begin() + 16, ct.end());
-		c.encryptECB(&tail[0], (int)tail.size());
+		c.encryptECB(tail);
 		char label[96];
 		snprintf(label, sizeof(label), "%s block 2 stands alone", k.name.c_str());
 		CHECK(compareVector(tail, half), label);
@@ -51,7 +53,7 @@ int main()
 		Serpent c;
 		std::vector<uint8_t> pt = hexToVec(SERPENT_TWO_BLOCK_PT), ct = hexToVec(SERPENT_CBC[0].cipher), v = pt, iv = hexToVec(SERPENT_CBC_IV);
 		c.generateKeys(SERPENT_CBC_KEY);
-		c.encryptCBC(&v[0], (int)v.size(), &iv[0]);
+		c.encryptCBC(v, iv);
 		CHECK(compareVector(v, ct), "cbc two-block encrypt");
 
 		/* CBC chains, so the two ciphertext blocks must differ. */
@@ -61,7 +63,7 @@ int main()
 		/* decryptCBC advances the IV it is handed, so start from a fresh copy. */
 		v = ct;
 		iv = hexToVec(SERPENT_CBC_IV);
-		c.decryptCBC(&v[0], (int)v.size(), &iv[0]);
+		c.decryptCBC(v, iv);
 		CHECK(compareVector(v, pt), "cbc two-block decrypt");
 	}
 
@@ -102,9 +104,9 @@ int main()
 		for (int i = 0; i < 16; ++i)
 			iv.push_back(0x00);
 		iv2 = iv;
-		c.encryptCBC(&v[0], (int)v.size(), &iv[0]);
+		c.encryptCBC(v, iv);
 		CHECK(!compareVector(v, w), "cbc ciphertext differs from plaintext");
-		d.decryptCBC(&v[0], (int)v.size(), &iv2[0]);
+		d.decryptCBC(v, iv2);
 		CHECK(compareVector(v, w), "cbc encrypt+decrypt restores plaintext");
 	}
 

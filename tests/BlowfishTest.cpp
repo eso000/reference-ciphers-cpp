@@ -9,6 +9,8 @@
 #include "vectors.h"
 #include "block/Blowfish.h"
 
+using namespace block;
+
 class BlowfishSuite : public CipherTestBase
 {
 public:
@@ -121,7 +123,7 @@ int main()
 		std::vector<uint8_t> v({0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f});
 		std::vector<uint8_t> w = v;
 		std::vector<uint8_t> iv({0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88});
-		c.encryptCBC(&v[0], 16, &iv[0]);
+		c.encryptCBC(std::span<uint8_t>(v).first(16), iv);
 		CHECK(!compareVector(v, w), "cbc ciphertext differs from plaintext");
 		std::vector<uint8_t> iv2({0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88});
 		bf_decryptCBC(&d, &v[0], 16, &iv2[0]);
@@ -136,7 +138,7 @@ int main()
 		std::vector<uint8_t> v({0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f});
 		std::vector<uint8_t> w = v;
 		std::vector<uint8_t> iv({0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88});
-		c.encryptPCBC(&v[0], 16, &iv[0]);
+		c.encryptPCBC(std::span<uint8_t>(v).first(16), iv);
 		std::vector<uint8_t> iv2({0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88});
 		bf_decryptPCBC(&d, &v[0], 16, &iv2[0]);
 		CHECK(compareVector(v, w), "pcbc encrypt+decrypt restores plaintext");
@@ -150,7 +152,7 @@ int main()
 		std::vector<uint8_t> v({0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f});
 		std::vector<uint8_t> w = v;
 		std::vector<uint8_t> iv({0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88});
-		c.encryptCFB(&v[0], 16, &iv[0]);
+		c.encryptCFB(std::span<uint8_t>(v).first(16), iv);
 		CHECK(!compareVector(v, w), "cfb ciphertext differs from plaintext");
 		std::vector<uint8_t> iv2({0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88});
 		bf_decryptCFB(&d, &v[0], 16, &iv2[0]);
@@ -169,7 +171,7 @@ int main()
 		CHECK(ct[7] != 0x01, "padding byte encrypted with the rest of the block");
 		CHECK(!compareVector(ct, pt), "encrypt() output differs from plaintext");
 		std::vector<uint8_t> dec = ct;
-		d.decryptECB(&dec[0], dec.size());
+		d.decryptECB(dec);
 		uint8_t ok = unpadPKCS(&dec);
 		CHECK(ok && compareVector(dec, pt), "decrypt + strip PKCS#7 restores plaintext");
 	}
@@ -218,9 +220,9 @@ int main()
 		d.generateKeys(kb);
 		std::vector<uint8_t> v({0x12, 0x34, 0x56, 0xAB, 0xCD, 0x13, 0x25, 0x36});
 		std::vector<uint8_t> w = v;
-		c.encryptECB(&v[0], 8);
+		c.encryptECB(std::span<uint8_t>(v).first(8));
 		CHECK(!compareVector(v, w), "5-byte key: ciphertext differs from plaintext");
-		d.decryptECB(&v[0], 8);
+		d.decryptECB(std::span<uint8_t>(v).first(8));
 		CHECK(compareVector(v, w), "5-byte key: encrypt+decrypt restores plaintext");
 	}
 	{
@@ -232,9 +234,9 @@ int main()
 		d.generateKeys(kb);
 		std::vector<uint8_t> v({0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77});
 		std::vector<uint8_t> w = v;
-		c.encryptECB(&v[0], 8);
+		c.encryptECB(std::span<uint8_t>(v).first(8));
 		CHECK(!compareVector(v, w), "56-byte (max) key: ciphertext differs from plaintext");
-		d.decryptECB(&v[0], 8);
+		d.decryptECB(std::span<uint8_t>(v).first(8));
 		CHECK(compareVector(v, w), "56-byte (max) key: encrypt+decrypt restores plaintext");
 	}
 

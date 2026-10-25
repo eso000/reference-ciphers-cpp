@@ -1,12 +1,16 @@
 #include <vector>
 #include <string>
-#include <fstream>
 #include <stdexcept>
 
 #include "block/DES.h"
 #include <iterator>
 #include "DES_data.h"
+#include "bits.h"
 #include "force_inline.h"
+
+namespace block {
+
+using namespace detail;
 
 FORCE_INLINE uint32_t rotl28(uint32_t xr, int times)
 {
@@ -227,17 +231,19 @@ uint64_t DES::fp_perm_alt(uint64_t block)
 		*rb = right.b[3]; *(rb+1) = right.b[2]; *(rb+2) = right.b[1];*(rb+3) = right.b[0];
 	}
 
-	int DES::blockSize() const
+	size_t DES::blockSize() const noexcept
 	{
 		return 8;
 	}
 
-	std::vector<uint8_t> DES::encrypt(std::vector<uint8_t> plt) const
+	std::vector<uint8_t> DES::encrypt(std::span<const uint8_t> plt) const
 	{
 		return encryptMode(plt, BlockMode::ECB, Padding::PKCS7);
 	}
 
-	std::vector<uint8_t> DES::decrypt(std::vector<uint8_t> plt) const
+	std::vector<uint8_t> DES::decrypt(std::span<const uint8_t> plt) const
 	{
 		return decryptMode(plt, BlockMode::ECB, Padding::PKCS7);
 	}
+
+} // namespace block

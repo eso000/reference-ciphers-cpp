@@ -1,15 +1,17 @@
-#ifndef AES_HEADER
-#define AES_HEADER
+#pragma once
 
 
-#include <stdint.h>
+#include <cstdint>
 #include <vector>
+#include <span>
 #include <string>
 
 #include "block/BlockCipher.h"
 
 
-class AES : public BlockCipher{
+namespace block {
+
+class AES final : public BlockCipher {
 public:
 	AES();
 
@@ -52,22 +54,17 @@ public:
 
 	void decrypt_block256(uint8_t *p) const;
 
-	int blockSize() const;
+	size_t blockSize() const noexcept override;
 
-	void encryptBlock(uint8_t *block) const;
+	void encryptBlock(uint8_t *block) const override;
 
-	void decryptBlock(uint8_t *block) const;
+	void decryptBlock(uint8_t *block) const override;
 
-	void encrypt(uint8_t *plt, int len) const;
-	
-	std::vector<uint8_t> encrypt(std::vector<uint8_t> plt) const;
+	std::vector<uint8_t> encrypt(std::span<const uint8_t> plt) const;
 
-	void decrypt(uint8_t *plt, int len) const;
-
-	std::vector<uint8_t> decrypt(std::vector<uint8_t> plt) const;
+	std::vector<uint8_t> decrypt(std::span<const uint8_t> plt) const;
 
 	
 };
 
-
-#endif
+} // namespace block
