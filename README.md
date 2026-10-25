@@ -130,15 +130,16 @@ The test vectors in `tests/vectors.h` include provenance notes documenting their
 ## Project layout
 
 ```
-Blockcipher/
-├── LICENSE             # MIT license
+.
+├── .github/workflows/ci.yml   # GCC/Clang + ASan/UBSan CI
+├── include/block/             # Public headers (BlockCipher, AES, DES, Blowfish, Twofish, Serpent, Padding)
+├── src/                       # Implementations
+├── tests/                     # Test suites and shared test infrastructure
+├── Makefile                   # Build configuration
 ├── README.md
+├── LICENSE
 ├── .gitignore
-├── Makefile            # Build configuration
-├── include/block/      # Public headers (BlockCipher, AES, DES, Blowfish, Twofish, Serpent, Padding)
-├── src/                # Implementations
-├── tests/              # Test suites and shared test infrastructure
-└── build/              # Generated binaries (after build)
+└── build/                     # Generated binaries (after build)
 ```
 
 ## License
