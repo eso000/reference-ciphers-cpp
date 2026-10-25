@@ -382,6 +382,7 @@ static uint32_t serpentWordFromHex(const std::string &s)
 
 	void Serpent::generateKeys(std::string key)
 	{
+    keySet = false;
     /* Serpent's specification accepts any key of 1 to 256 bits and defines the
        padding for shorter ones, which padKeyBit below implements, so a short
        key is legal rather than an error. Only the two cases padKeyBit would
@@ -421,6 +422,7 @@ static uint32_t serpentWordFromHex(const std::string &s)
         {
         	Subkeys.push_back(*i);
         }
+        keySet = true;
 
     }
 
@@ -521,11 +523,13 @@ static uint32_t serpentWordFromHex(const std::string &s)
 
 	void Serpent::encryptBlock(uint8_t *block) const
 	{
+		requireKey();
 		encrypt_block(block, block + 4, block + 8, block + 12);
 	}
 
 	void Serpent::decryptBlock(uint8_t *block) const
 	{
+		requireKey();
 		decrypt_block(block, block + 4, block + 8, block + 12);
 	}
 

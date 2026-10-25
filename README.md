@@ -36,8 +36,11 @@ Use a vetted, maintained library such as OpenSSL or libsodium for anything that 
 Six modes of operation are shared by every cipher through the `BlockCipher` base class:
 
 - **ECB, CBC, PCBC, CFB, OFB, CTR** — all implemented in a common mode layer.
-- **Block modes (ECB, CBC, PCBC)** operate on whole blocks and support padding. Schemes: `Padding::None`, `Padding::Zeros`, `Padding::PKCS7`, `Padding::ANSIX923`, `Padding::ISO78164`.
-- **Stream-like modes (CFB, OFB, CTR)** work on arbitrary lengths without padding.
+- **Block modes (ECB, CBC, PCBC)** operate on whole blocks and support padding. Schemes: `Padding::None`, `Padding::Zeros`, `Padding::PKCS7`, `Padding::ANSIX923`, `Padding::ISO78164`. `Padding::None` requires block-aligned input. `Padding::PKCS7`, `Padding::ANSIX923` and `Padding::ISO78164` always add a padding block, even when the message is aligned; `Padding::Zeros` only fills up to the next block boundary, so empty and aligned messages are not extended.
+- **Unpadding** is validated: a malformed strict padding or an empty ciphertext with a strict scheme is an error, not silently-returned data.
+- **Stream-like modes (CFB, OFB, CTR)** work on arbitrary lengths and ignore the padding argument, so the ciphertext is exactly as long as the plaintext.
+- An IV is required for every mode except ECB and must be exactly one block long; a wrong-sized IV is an error rather than being silently adjusted.
+- `encryptBlock()`/`decryptBlock()`, every mode method and the file methods throw `std::logic_error` until `generateKeys()` has completed successfully. A failed `generateKeys()` leaves the cipher unusable rather than exposing a partial key schedule.
 
 ## Design
 

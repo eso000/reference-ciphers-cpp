@@ -195,8 +195,12 @@ int main()
 		std::vector<uint8_t> pt = hexToVec("00112233445566778899aabbccddeeff");
 		std::vector<uint8_t> ct = c.encrypt(pt);
 		ct[31] = 0x00;
-		std::vector<uint8_t> rt = d.decrypt(ct);
-		CHECK(rt.size() == 32, "invalid padding is not stripped");
+		d.decrypt(ct);
+		CHECK(0, "invalid padding is rejected");
+	}
+	catch (const std::invalid_argument &)
+	{
+		CHECK(1, "invalid padding is rejected");
 	}
 	catch (...)
 	{

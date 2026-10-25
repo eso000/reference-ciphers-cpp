@@ -170,8 +170,12 @@ int main()
 		std::vector<uint8_t> pt = hexToVec("0011223344556677");
 		std::vector<uint8_t> ct = c.encrypt(pt);
 		ct[15] = 0x00;
-		std::vector<uint8_t> rt = d.decrypt(ct);
-		CHECK(rt.size() == 16, "invalid padding is not stripped");
+		d.decrypt(ct);
+		CHECK(0, "invalid padding is rejected");
+	}
+	catch (const std::invalid_argument &)
+	{
+		CHECK(1, "invalid padding is rejected");
 	}
 	catch (...)
 	{

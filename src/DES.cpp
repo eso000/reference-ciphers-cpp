@@ -132,6 +132,7 @@ uint64_t DES::fp_perm_alt(uint64_t block)
 	}
 
 	void DES::generateKeys(std::string key){
+		keySet = false;
 		if (key.size() != 16)
 			throw std::invalid_argument("DES key must be 16 hex characters, got " + std::to_string(key.size()));
 		Subkeys.clear();
@@ -149,10 +150,12 @@ uint64_t DES::fp_perm_alt(uint64_t block)
 			rightKey = rotl28(rightKey, shift);
 			Subkeys.push_back(permutate( (leftKey<<28)| rightKey,keyperm2, 28*2));
 		}
+		keySet = true;
 	}
 
 	void DES::encryptBlock(uint8_t *block) const
 	{
+		requireKey();
 		uint8_t *lb = block;
 		uint8_t *rb = block + 4;
 		union word left, right;
@@ -189,6 +192,7 @@ uint64_t DES::fp_perm_alt(uint64_t block)
 
 	void DES::decryptBlock(uint8_t *block) const
 	{
+		requireKey();
 		uint8_t *lb = block;
 		uint8_t *rb = block + 4;
 		union word left, right;

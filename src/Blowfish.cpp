@@ -19,29 +19,36 @@ FORCE_INLINE void blowfish_round(uint32_t *l, uint32_t *r, int i, const Blowfish
 	*r ^= blowfish_F(bf, *l);
 }
 
-	void Blowfish::encryptBlock(uint8_t *block) const
+	static void blowfishEncryptRaw(const Blowfish *bf, uint8_t *block)
 	{
 		uint32_t left = BlockCipher::load32_be(block);
 		uint32_t right = BlockCipher::load32_be(block + 4);
 
-		blowfish_round(&left, &right, 0, this);  blowfish_round(&right, &left, 1, this);
-		blowfish_round(&left, &right, 2, this);  blowfish_round(&right, &left, 3, this);
-		blowfish_round(&left, &right, 4, this);  blowfish_round(&right, &left, 5, this);
-		blowfish_round(&left, &right, 6, this);  blowfish_round(&right, &left, 7, this);
-		blowfish_round(&left, &right, 8, this);  blowfish_round(&right, &left, 9, this);
-		blowfish_round(&left, &right, 10, this); blowfish_round(&right, &left, 11, this);
-		blowfish_round(&left, &right, 12, this); blowfish_round(&right, &left, 13, this);
-		blowfish_round(&left, &right, 14, this); blowfish_round(&right, &left, 15, this);
-		left ^= Subkeys[16];
-		right ^= Subkeys[17];
+		blowfish_round(&left, &right, 0, bf);  blowfish_round(&right, &left, 1, bf);
+		blowfish_round(&left, &right, 2, bf);  blowfish_round(&right, &left, 3, bf);
+		blowfish_round(&left, &right, 4, bf);  blowfish_round(&right, &left, 5, bf);
+		blowfish_round(&left, &right, 6, bf);  blowfish_round(&right, &left, 7, bf);
+		blowfish_round(&left, &right, 8, bf);  blowfish_round(&right, &left, 9, bf);
+		blowfish_round(&left, &right, 10, bf); blowfish_round(&right, &left, 11, bf);
+		blowfish_round(&left, &right, 12, bf); blowfish_round(&right, &left, 13, bf);
+		blowfish_round(&left, &right, 14, bf); blowfish_round(&right, &left, 15, bf);
+		left ^= bf->Subkeys[16];
+		right ^= bf->Subkeys[17];
 
 		BlockCipher::store32_be(block + 4, left);
 		BlockCipher::store32_be(block, right);
 	}
 
+	void Blowfish::encryptBlock(uint8_t *block) const
+	{
+		requireKey();
+		blowfishEncryptRaw(this, block);
+	}
+
 
 	void Blowfish::decryptBlock(uint8_t *block) const
 	{
+		requireKey();
 		uint32_t left = BlockCipher::load32_be(block);
 		uint32_t right = BlockCipher::load32_be(block + 4);
 
@@ -63,6 +70,7 @@ FORCE_INLINE void blowfish_round(uint32_t *l, uint32_t *r, int i, const Blowfish
 
 	
 	void Blowfish::generateKeys(const std::vector<uint8_t>& key){
+		keySet = false;
 		/* Blowfish's published key schedule covers 1- to 24-byte keys, so the lower
 		   bound stays at 1: Schneier's own set_key vectors for the 1, 2 and
 		   3-byte cases are part of the definition and this implementation
@@ -92,30 +100,31 @@ FORCE_INLINE void blowfish_round(uint32_t *l, uint32_t *r, int i, const Blowfish
 		uint8_t P[8] = {(uint8_t)0, (uint8_t)0, (uint8_t)0, (uint8_t)0,(uint8_t)0,(uint8_t)0,(uint8_t)0,(uint8_t)0};
 
 		for(int i=0;i <(int)Subkeys.size(); i=i+2){
-			encryptBlock(P);
+			blowfishEncryptRaw(this, P);
 			Subkeys[i] = ((uint32_t)P[0]<<24) + ((uint32_t)P[1]<<16) + ((uint32_t)P[2]<<8) + P[3];
 			Subkeys[i+1] = ((uint32_t)P[4]<<24) + ((uint32_t)P[5]<<16) + ((uint32_t)P[6]<<8) + P[7];
 		}
 		for(int i = 0 ;i<(int)SBoxes0.size();i=i+2){
-			encryptBlock(P);
+			blowfishEncryptRaw(this, P);
 			SBoxes0[i] = ((uint32_t)P[0]<<24) + ((uint32_t)P[1]<<16) + ((uint32_t)P[2]<<8) + P[3];
 			SBoxes0[i+1] = ((uint32_t)P[4]<<24) + ((uint32_t)P[5]<<16) + ((uint32_t)P[6]<<8) + P[7];
 		}
 		for(int i = 0 ;i<(int)SBoxes1.size();i=i+2){
-			encryptBlock(P);
+			blowfishEncryptRaw(this, P);
 			SBoxes1[i] = ((uint32_t)P[0]<<24) + ((uint32_t)P[1]<<16) + ((uint32_t)P[2]<<8) + P[3];
 			SBoxes1[i+1] = ((uint32_t)P[4]<<24) + ((uint32_t)P[5]<<16) + ((uint32_t)P[6]<<8) + P[7];
 		}
 		for(int i = 0 ;i<(int)SBoxes2.size();i=i+2){
-			encryptBlock(P);
+			blowfishEncryptRaw(this, P);
 			SBoxes2[i] = ((uint32_t)P[0]<<24) + ((uint32_t)P[1]<<16) + ((uint32_t)P[2]<<8) + P[3];
 			SBoxes2[i+1] = ((uint32_t)P[4]<<24) + ((uint32_t)P[5]<<16) + ((uint32_t)P[6]<<8) + P[7];
 		}
 		for(int i = 0 ;i<(int)SBoxes3.size();i=i+2){
-			encryptBlock(P);
+			blowfishEncryptRaw(this, P);
 			SBoxes3[i] = ((uint32_t)P[0]<<24) + ((uint32_t)P[1]<<16) + ((uint32_t)P[2]<<8) + P[3];
 			SBoxes3[i+1] = ((uint32_t)P[4]<<24) + ((uint32_t)P[5]<<16) + ((uint32_t)P[6]<<8) + P[7];
 		}
+		keySet = true;
 	}	
 	
 	int Blowfish::blockSize() const

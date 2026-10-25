@@ -191,6 +191,7 @@ FORCE_INLINE void aes_invRound(uint32_t col1[4], uint32_t col2[4], const AES &a,
 
 
 	void AES::generateKeys(std::string key){
+		keySet = false;
 		/* AES takes a 128, 192 or 256-bit key, i.e. 32, 48 or 64 hex
 		   characters. This used to round the length up to the next of those
 		   sizes and pad with '0', so a 33-character key silently became a
@@ -246,7 +247,7 @@ FORCE_INLINE void aes_invRound(uint32_t col1[4], uint32_t col2[4], const AES &a,
 		Subkeys.clear();
 		for (int i=0;i<4*R;++i)
 			Subkeys.push_back(((uint32_t)W[i][0]<<24)|((uint32_t)W[i][1]<<16)|((uint32_t)W[i][2]<<8)|W[i][3] );
-		
+		keySet = true;
 		
 		
 	}
@@ -384,6 +385,7 @@ void AES::decrypt_block256(uint8_t *p) const
 
 	void AES::encryptBlock(uint8_t *block) const
 	{
+		requireKey();
 		switch(Subkeys.size())
 		{
 			case 60: encrypt_block256(block); break;
@@ -394,6 +396,7 @@ void AES::decrypt_block256(uint8_t *p) const
 
 	void AES::decryptBlock(uint8_t *block) const
 	{
+		requireKey();
 		switch(Subkeys.size())
 		{
 			case 60: decrypt_block256(block); break;

@@ -109,8 +109,16 @@ public:
 
 	void decrypt_File(char* path) const;
 
+protected:
+	/* Set by a successful generateKeys() call. Every operation that needs the
+	   key schedule checks it so an unkeyed cipher fails instead of silently
+	   returning its input unchanged. */
+	bool keySet = false;
+
+	void requireKey() const;
+
 private:
-	std::vector<uint8_t> normalizeIV(std::vector<uint8_t> iv) const;
+	void validateIV(const std::vector<uint8_t> &iv, BlockMode mode) const;
 };
 
 #endif

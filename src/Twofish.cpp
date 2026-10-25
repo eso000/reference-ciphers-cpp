@@ -143,6 +143,7 @@ FORCE_INLINE void twofish_invRound(int i, uint32_t l0, uint32_t l1, uint32_t r0,
 
 	void Twofish::generateKeys(const std::vector<uint8_t>& key)
 	{
+		keySet = false;
 		if (key.size() != 16 && key.size() != 24 && key.size() != 32)
 			throw std::invalid_argument("Twofish key must be 16, 24 or 32 bytes, got " + std::to_string(key.size()));
 
@@ -245,10 +246,12 @@ FORCE_INLINE void twofish_invRound(int i, uint32_t l0, uint32_t l1, uint32_t r0,
 			b0 = BlockCipher::rotl(b0,9);
 			Subkeys.push_back(b0);	 
 		}
+		keySet = true;
 	}
 
 	void Twofish::encryptBlock(uint8_t *block) const
 	{
+		requireKey();
 		uint32_t left0 = BlockCipher::load32_le(block) ^ Subkeys[0];
 		uint32_t left1 = BlockCipher::load32_le(block + 4) ^ Subkeys[1];
 		uint32_t right0 = BlockCipher::load32_le(block + 8) ^ Subkeys[2];
@@ -283,6 +286,7 @@ FORCE_INLINE void twofish_invRound(int i, uint32_t l0, uint32_t l1, uint32_t r0,
 
 	void Twofish::decryptBlock(uint8_t *block) const
 	{
+		requireKey();
 		uint32_t left0 = BlockCipher::load32_le(block) ^ Subkeys[4];
 		uint32_t left1 = BlockCipher::load32_le(block + 4) ^ Subkeys[5];
 		uint32_t right0 = BlockCipher::load32_le(block + 8) ^ Subkeys[6];
