@@ -10,23 +10,7 @@
 namespace block {
 
 using namespace detail;
-
-Twofish::Twofish()
-{
-	RS.clear();
-	for (const auto& r : RS_data) RS.emplace_back(std::begin(r), std::end(r));
-	MDS.clear();
-	for (const auto& r : MDS_data) MDS.emplace_back(std::begin(r), std::end(r));
-	MDSEF.assign(std::begin(MDSEF_data), std::end(MDSEF_data));
-	MDS5B.assign(std::begin(MDS5B_data), std::end(MDS5B_data));
-	q0.assign(std::begin(q0_data), std::end(q0_data));
-	q1.assign(std::begin(q1_data), std::end(q1_data));
-}
-
-
-
-
-
+using namespace tables::twofish;
 
 
 /* Pseudo-Hadamard transform: a' = a + b, b' = a + 2b. */
@@ -38,42 +22,42 @@ FORCE_INLINE void twofish_pht(uint32_t *a, uint32_t *b)
 }
 
 /* Multiplies the four bytes of t by the MDS matrix. */
-FORCE_INLINE uint32_t twofish_mds(const Twofish &tf, uint32_t t)
+FORCE_INLINE uint32_t twofish_mds(uint32_t t)
 {
-	return (uint32_t)(byte3(t) ^ tf.MDSEF[byte2(t)] ^ tf.MDS5B[byte1(t)] ^ tf.MDS5B[byte0(t)])
-		| ((uint32_t)(tf.MDS5B[byte3(t)] ^ tf.MDSEF[byte2(t)] ^ tf.MDSEF[byte1(t)] ^ byte0(t)) << 8)
-		| ((uint32_t)(tf.MDSEF[byte3(t)] ^ tf.MDS5B[byte2(t)] ^ byte1(t) ^ tf.MDSEF[byte0(t)]) << 16)
-		| ((uint32_t)(tf.MDSEF[byte3(t)] ^ byte2(t) ^ tf.MDSEF[byte1(t)] ^ tf.MDS5B[byte0(t)]) << 24);
+	return (uint32_t)(byte3(t) ^ MDSEF_data[byte2(t)] ^ MDS5B_data[byte1(t)] ^ MDS5B_data[byte0(t)])
+		| ((uint32_t)(MDS5B_data[byte3(t)] ^ MDSEF_data[byte2(t)] ^ MDSEF_data[byte1(t)] ^ byte0(t)) << 8)
+		| ((uint32_t)(MDSEF_data[byte3(t)] ^ MDS5B_data[byte2(t)] ^ byte1(t) ^ MDSEF_data[byte0(t)]) << 16)
+		| ((uint32_t)(MDSEF_data[byte3(t)] ^ byte2(t) ^ MDSEF_data[byte1(t)] ^ MDS5B_data[byte0(t)]) << 24);
 }
 
 /* The h function for 128, 192 and 256-bit keys: the q-permutation chain for
    that key length, followed by the MDS multiply. Only the key schedule uses
    it; encryption goes through the precomputed Sbox0..3 tables instead. */
-static uint32_t twofish_h128(uint32_t x, const uint8_t *k, const Twofish &tf)
+static uint32_t twofish_h128(uint32_t x, const uint8_t *k)
 {
-	uint32_t t = (uint32_t)tf.q1[tf.q0[tf.q0[byte0(x)] ^ k[0]] ^ k[4]]
-		| ((uint32_t)tf.q0[tf.q0[tf.q1[byte1(x)] ^ k[1]] ^ k[5]] << 8)
-		| ((uint32_t)tf.q1[tf.q1[tf.q0[byte2(x)] ^ k[2]] ^ k[6]] << 16)
-		| ((uint32_t)tf.q0[tf.q1[tf.q1[byte3(x)] ^ k[3]] ^ k[7]] << 24);
-	return twofish_mds(tf, t);
+	uint32_t t = (uint32_t)q1_data[q0_data[q0_data[byte0(x)] ^ k[0]] ^ k[4]]
+		| ((uint32_t)q0_data[q0_data[q1_data[byte1(x)] ^ k[1]] ^ k[5]] << 8)
+		| ((uint32_t)q1_data[q1_data[q0_data[byte2(x)] ^ k[2]] ^ k[6]] << 16)
+		| ((uint32_t)q0_data[q1_data[q1_data[byte3(x)] ^ k[3]] ^ k[7]] << 24);
+	return twofish_mds(t);
 }
 
-static uint32_t twofish_h192(uint32_t x, const uint8_t *k, const Twofish &tf)
+static uint32_t twofish_h192(uint32_t x, const uint8_t *k)
 {
-	uint32_t t = (uint32_t)tf.q1[tf.q0[tf.q0[tf.q1[byte0(x)] ^ k[0]] ^ k[4]] ^ k[8]]
-		| ((uint32_t)tf.q0[tf.q0[tf.q1[tf.q1[byte1(x)] ^ k[1]] ^ k[5]] ^ k[9]] << 8)
-		| ((uint32_t)tf.q1[tf.q1[tf.q0[tf.q0[byte2(x)] ^ k[2]] ^ k[6]] ^ k[10]] << 16)
-		| ((uint32_t)tf.q0[tf.q1[tf.q1[tf.q0[byte3(x)] ^ k[3]] ^ k[7]] ^ k[11]] << 24);
-	return twofish_mds(tf, t);
+	uint32_t t = (uint32_t)q1_data[q0_data[q0_data[q1_data[byte0(x)] ^ k[0]] ^ k[4]] ^ k[8]]
+		| ((uint32_t)q0_data[q0_data[q1_data[q1_data[byte1(x)] ^ k[1]] ^ k[5]] ^ k[9]] << 8)
+		| ((uint32_t)q1_data[q1_data[q0_data[q0_data[byte2(x)] ^ k[2]] ^ k[6]] ^ k[10]] << 16)
+		| ((uint32_t)q0_data[q1_data[q1_data[q0_data[byte3(x)] ^ k[3]] ^ k[7]] ^ k[11]] << 24);
+	return twofish_mds(t);
 }
 
-static uint32_t twofish_h256(uint32_t x, const uint8_t *k, const Twofish &tf)
+static uint32_t twofish_h256(uint32_t x, const uint8_t *k)
 {
-	uint32_t t = (uint32_t)tf.q1[tf.q0[tf.q0[tf.q1[tf.q1[byte0(x)] ^ k[0]] ^ k[4]] ^ k[8]] ^ k[12]]
-		| ((uint32_t)tf.q0[tf.q0[tf.q1[tf.q1[tf.q0[byte1(x)] ^ k[1]] ^ k[5]] ^ k[9]] ^ k[13]] << 8)
-		| ((uint32_t)tf.q1[tf.q1[tf.q0[tf.q0[tf.q0[byte2(x)] ^ k[2]] ^ k[6]] ^ k[10]] ^ k[14]] << 16)
-		| ((uint32_t)tf.q0[tf.q1[tf.q1[tf.q0[tf.q1[byte3(x)] ^ k[3]] ^ k[7]] ^ k[11]] ^ k[15]] << 24);
-	return twofish_mds(tf, t);
+	uint32_t t = (uint32_t)q1_data[q0_data[q0_data[q1_data[q1_data[byte0(x)] ^ k[0]] ^ k[4]] ^ k[8]] ^ k[12]]
+		| ((uint32_t)q0_data[q0_data[q1_data[q1_data[q0_data[byte1(x)] ^ k[1]] ^ k[5]] ^ k[9]] ^ k[13]] << 8)
+		| ((uint32_t)q1_data[q1_data[q0_data[q0_data[q0_data[byte2(x)] ^ k[2]] ^ k[6]] ^ k[10]] ^ k[14]] << 16)
+		| ((uint32_t)q0_data[q1_data[q1_data[q0_data[q1_data[byte3(x)] ^ k[3]] ^ k[7]] ^ k[11]] ^ k[15]] << 24);
+	return twofish_mds(t);
 }
 
 /* The g function, through the key-dependent S-boxes built by the schedule. */
@@ -117,7 +101,7 @@ FORCE_INLINE void twofish_invRound(int i, uint32_t l0, uint32_t l1, uint32_t r0,
 			b = b>>1;
 			a = a<<1;
 			if (a > 255)
-				a = a^pol;			
+				a = a^pol;
 		}
 		return p;
 	}
@@ -132,7 +116,7 @@ FORCE_INLINE void twofish_invRound(int i, uint32_t l0, uint32_t l1, uint32_t r0,
 			b = b>>1;
 			a = a<<1;
 			if (a > 255)
-				a = a^333;			
+				a = a^333;
 		}
 		return (uint8_t)p;
 	}
@@ -141,7 +125,7 @@ FORCE_INLINE void twofish_invRound(int i, uint32_t l0, uint32_t l1, uint32_t r0,
 	{
 		uint8_t result = 0;
 		for (int t = 0; t < 8; ++t)
-			result ^= multgf((uint16_t)*(p+t),(uint16_t)RS[i][t]);
+			result ^= multgf((uint16_t)*(p+t),(uint16_t)RS_data[i][t]);
 		return result;
 	}
 
@@ -167,39 +151,35 @@ FORCE_INLINE void twofish_invRound(int i, uint32_t l0, uint32_t l1, uint32_t r0,
 		uint8_t s2 = 0;
 		uint8_t s3 = 0;
 
-		Sbox0.clear();
-		Sbox1.clear();
-		Sbox2.clear();
-		Sbox3.clear();
 
 		for (int i = 0; i < 256; ++i)
 		{
 			switch (n / 8)
 			{
 				case 4:
-					s0 = q1[q0[q0[q1[q1[i]^S[0]]^S[4]]^S[8]]^S[12]];
-					s1 = q0[q0[q1[q1[q0[i]^S[1]]^S[5]]^S[9]]^S[13]];
-					s2 = q1[q1[q0[q0[q0[i]^S[2]]^S[6]]^S[10]]^S[14]];
-					s3 = q0[q1[q1[q0[q1[i]^S[3]]^S[7]]^S[11]]^S[15]];
+					s0 = q1_data[q0_data[q0_data[q1_data[q1_data[i]^S[0]]^S[4]]^S[8]]^S[12]];
+					s1 = q0_data[q0_data[q1_data[q1_data[q0_data[i]^S[1]]^S[5]]^S[9]]^S[13]];
+					s2 = q1_data[q1_data[q0_data[q0_data[q0_data[i]^S[2]]^S[6]]^S[10]]^S[14]];
+					s3 = q0_data[q1_data[q1_data[q0_data[q1_data[i]^S[3]]^S[7]]^S[11]]^S[15]];
 					break;
 				case 3:
-					s0 = q1[q0[q0[q1[i]^S[0]]^S[4]]^S[8]];
-					s1 = q0[q0[q1[q1[i]^S[1]]^S[5]]^S[9]];
-					s2 = q1[q1[q0[q0[i]^S[2]]^S[6]]^S[10]];
-					s3 = q0[q1[q1[q0[i]^S[3]]^S[7]]^S[11]];
+					s0 = q1_data[q0_data[q0_data[q1_data[i]^S[0]]^S[4]]^S[8]];
+					s1 = q0_data[q0_data[q1_data[q1_data[i]^S[1]]^S[5]]^S[9]];
+					s2 = q1_data[q1_data[q0_data[q0_data[i]^S[2]]^S[6]]^S[10]];
+					s3 = q0_data[q1_data[q1_data[q0_data[i]^S[3]]^S[7]]^S[11]];
 					break;
 				case 2:
-					s0 = q1[q0[q0[i]^S[0]]^S[4]];
-					s1 = q0[q0[q1[i]^S[1]]^S[5]];
-					s2 = q1[q1[q0[i]^S[2]]^S[6]];
-					s3 = q0[q1[q1[i]^S[3]]^S[7]];
+					s0 = q1_data[q0_data[q0_data[i]^S[0]]^S[4]];
+					s1 = q0_data[q0_data[q1_data[i]^S[1]]^S[5]];
+					s2 = q1_data[q1_data[q0_data[i]^S[2]]^S[6]];
+					s3 = q0_data[q1_data[q1_data[i]^S[3]]^S[7]];
 					break;
 			}
 
-			Sbox3.push_back(s0 |((uint32_t)MDS5B[s0]<<8)|((uint32_t)MDSEF[s0]<<16)|((uint32_t)MDSEF[s0]<<24));
-			Sbox2.push_back(MDSEF[s1]|((uint32_t)MDSEF[s1]<<8)|((uint32_t)MDS5B[s1]<<16)|((uint32_t)s1<<24));
-			Sbox1.push_back(MDS5B[s2]|((uint32_t)MDSEF[s2]<<8)|((uint32_t)s2<<16)|((uint32_t)MDSEF[s2]<<24));
-			Sbox0.push_back(MDS5B[s3]|((uint32_t)s3<<8)|((uint32_t)MDSEF[s3]<<16)|((uint32_t)MDS5B[s3]<<24));
+			Sbox3[i] = (s0 |((uint32_t)MDS5B_data[s0]<<8)|((uint32_t)MDSEF_data[s0]<<16)|((uint32_t)MDSEF_data[s0]<<24));
+			Sbox2[i] = (MDSEF_data[s1]|((uint32_t)MDSEF_data[s1]<<8)|((uint32_t)MDS5B_data[s1]<<16)|((uint32_t)s1<<24));
+			Sbox1[i] = (MDS5B_data[s2]|((uint32_t)MDSEF_data[s2]<<8)|((uint32_t)s2<<16)|((uint32_t)MDSEF_data[s2]<<24));
+			Sbox0[i] = (MDS5B_data[s3]|((uint32_t)s3<<8)|((uint32_t)MDSEF_data[s3]<<16)|((uint32_t)MDS5B_data[s3]<<24));
 		}
 
 		std::vector<uint8_t> M_odd(n/2, 0);
@@ -222,8 +202,7 @@ FORCE_INLINE void twofish_invRound(int i, uint32_t l0, uint32_t l1, uint32_t r0,
 			}
 		}
 
-		
-				
+
 		uint32_t rho = 16843009;//2**24+2**16+2**8+1
 		uint32_t a0, b0;
 		Subkeys.clear();
@@ -232,23 +211,23 @@ FORCE_INLINE void twofish_invRound(int i, uint32_t l0, uint32_t l1, uint32_t r0,
 			b0 = (2*i+1)*rho;
 			switch (n/8){
 				case 4:
-					a0 = twofish_h256(a0, &M_even[0], *this);
-					b0 = twofish_h256(b0, &M_odd[0], *this);
+					a0 = twofish_h256(a0, &M_even[0]);
+					b0 = twofish_h256(b0, &M_odd[0]);
 					break;
 				case 3:
-					a0 = twofish_h192(a0, &M_even[0], *this);
-					b0 = twofish_h192(b0, &M_odd[0], *this);
+					a0 = twofish_h192(a0, &M_even[0]);
+					b0 = twofish_h192(b0, &M_odd[0]);
 					break;
 				case 2:
-					a0 = twofish_h128(a0, &M_even[0], *this);
-					b0 = twofish_h128(b0, &M_odd[0], *this);
+					a0 = twofish_h128(a0, &M_even[0]);
+					b0 = twofish_h128(b0, &M_odd[0]);
 					break;
 			}
 			b0 = rotl(b0,8);
 			twofish_pht(&a0, &b0);
 			Subkeys.push_back(a0);
 			b0 = rotl(b0,9);
-			Subkeys.push_back(b0);	 
+			Subkeys.push_back(b0);
 		}
 		keySet = true;
 	}
@@ -323,9 +302,7 @@ FORCE_INLINE void twofish_invRound(int i, uint32_t l0, uint32_t l1, uint32_t r0,
 		store32_le(block + 12, newl1);
 	}
 
-	
 
-	
 	size_t Twofish::blockSize() const noexcept
 	{
 		return 16;

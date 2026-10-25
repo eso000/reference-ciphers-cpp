@@ -11,6 +11,7 @@
 namespace block {
 
 using namespace detail;
+using namespace tables::des;
 
 FORCE_INLINE uint32_t rotl28(uint32_t xr, int times)
 {
@@ -19,16 +20,16 @@ FORCE_INLINE uint32_t rotl28(uint32_t xr, int times)
 
 	uint64_t DES::feistel(uint32_t r, int i) const
 	{
-		uint64_t temp = permutate(r, ExpentionPerm, 32) ^ Subkeys[i];
+		uint64_t temp = permutate(r, ExpentionPerm_data, 32) ^ Subkeys[i];
 		if (use_alt)
 		{
 			return SPBox[0][(temp>>42)&0x3f] ^ SPBox[1][(temp>>36)&0x3f] ^ SPBox[2][(temp>>30)&0x3f] ^ SPBox[3][(temp>>24)&0x3f]
 			^ SPBox[4][(temp>>18)&0x3f] ^ SPBox[5][(temp>>12)&0x3f] ^ SPBox[6][(temp>>6)&0x3f] ^ SPBox[7][temp&0x3f];
 		}
-		temp = SBoxes0[temp>>42] << 28 | SBoxes1[temp>>36&0b111111] << 24 | SBoxes2[temp>>30&0b111111] << 20
-		| SBoxes3[temp>>24&0b111111] << 16 | SBoxes4[temp>>18&0b111111] << 12 | SBoxes5[temp>>12&0b111111] << 8
-		| SBoxes6[temp>>6&0b111111] << 4| SBoxes7[temp&0b111111];
-		return permutate(temp, PBox,32);
+		temp = SBoxes0_data[temp>>42] << 28 | SBoxes1_data[temp>>36&0b111111] << 24 | SBoxes2_data[temp>>30&0b111111] << 20
+		| SBoxes3_data[temp>>24&0b111111] << 16 | SBoxes4_data[temp>>18&0b111111] << 12 | SBoxes5_data[temp>>12&0b111111] << 8
+		| SBoxes6_data[temp>>6&0b111111] << 4| SBoxes7_data[temp&0b111111];
+		return permutate(temp, PBox_data,32);
 	}
 
 	void DES::round(uint32_t &l, uint32_t &r, int i) const
@@ -36,23 +37,6 @@ FORCE_INLINE uint32_t rotl28(uint32_t xr, int times)
 		l ^= (uint32_t)feistel(r, i);
 	}
 
-DES::DES(bool useAlt) : use_alt(useAlt)
-{
-	initialperm.assign(std::begin(initialperm_data), std::end(initialperm_data));
-	inverseperm.assign(std::begin(inverseperm_data), std::end(inverseperm_data));
-	ExpentionPerm.assign(std::begin(ExpentionPerm_data), std::end(ExpentionPerm_data));
-	SBoxes0.assign(std::begin(SBoxes0_data), std::end(SBoxes0_data));
-	SBoxes1.assign(std::begin(SBoxes1_data), std::end(SBoxes1_data));
-	SBoxes2.assign(std::begin(SBoxes2_data), std::end(SBoxes2_data));
-	SBoxes3.assign(std::begin(SBoxes3_data), std::end(SBoxes3_data));
-	SBoxes4.assign(std::begin(SBoxes4_data), std::end(SBoxes4_data));
-	SBoxes5.assign(std::begin(SBoxes5_data), std::end(SBoxes5_data));
-	SBoxes6.assign(std::begin(SBoxes6_data), std::end(SBoxes6_data));
-	SBoxes7.assign(std::begin(SBoxes7_data), std::end(SBoxes7_data));
-	keyperm1.assign(std::begin(keyperm1_data), std::end(keyperm1_data));
-	keyperm2.assign(std::begin(keyperm2_data), std::end(keyperm2_data));
-	PBox.assign(std::begin(PBox_data), std::end(PBox_data));
-}
 
 static inline uint32_t rol32(uint32_t x, int n)
 {
@@ -123,11 +107,10 @@ uint64_t DES::fp_perm_alt(uint64_t block)
 }
 
 
-
-	uint64_t DES::permutate(uint64_t x, std::vector<uint8_t> P, int base_size) const
+	uint64_t DES::permutate(uint64_t x, std::span<const uint8_t> P, int base_size)
 	{
 		uint64_t result = 0;
-		for (int i = 0; i < (int)P.size(); ++i)
+		for (size_t i = 0; i < P.size(); ++i)
 		{
 			result <<= 1;
 			result |= (x>>(base_size-P[i])&1);
@@ -141,7 +124,7 @@ uint64_t DES::fp_perm_alt(uint64_t block)
 			throw std::invalid_argument("DES key must be 16 hex characters, got " + std::to_string(key.size()));
 		Subkeys.clear();
 		uint64_t leftKey = std::stoull(key, 0, 16);
-		leftKey = permutate(leftKey, keyperm1, 64);
+		leftKey = permutate(leftKey, keyperm1_data, 64);
 		uint64_t rightKey = leftKey&0b1111111111111111111111111111;
 		leftKey >>= 28;
 		int shift;
@@ -152,7 +135,7 @@ uint64_t DES::fp_perm_alt(uint64_t block)
 			}
 			leftKey = rotl28(leftKey, shift);
 			rightKey = rotl28(rightKey, shift);
-			Subkeys.push_back(permutate( (leftKey<<28)| rightKey,keyperm2, 28*2));
+			Subkeys.push_back(permutate( (leftKey<<28)| rightKey,keyperm2_data, 28*2));
 		}
 		keySet = true;
 	}
@@ -169,7 +152,7 @@ uint64_t DES::fp_perm_alt(uint64_t block)
 		if (use_alt)
 			temp = ip_perm_alt((uint64_t)left << 32 | right);
 		else
-					temp = permutate((uint64_t)left<<32|right,initialperm, 64);
+					temp = permutate((uint64_t)left<<32|right,initialperm_data, 64);
 		left = (uint32_t)(temp >> 32);
 		right = (uint32_t)(temp & 0xffffffff);
 
@@ -185,7 +168,7 @@ uint64_t DES::fp_perm_alt(uint64_t block)
 		if (use_alt)
 			temp = fp_perm_alt((uint64_t)right << 32 | left);
 		else
-					temp = permutate((uint64_t)right<<32|left,inverseperm, 64);
+					temp = permutate((uint64_t)right<<32|left,inverseperm_data, 64);
 
 		right = (uint32_t)(temp & 0xffffffff);
 		left = (uint32_t)(temp >> 32);
@@ -205,7 +188,7 @@ uint64_t DES::fp_perm_alt(uint64_t block)
 		if (use_alt)
 			temp = ip_perm_alt((uint64_t)left << 32 | right);
 		else
-					temp = permutate((uint64_t)left<<32|right,initialperm, 64);
+					temp = permutate((uint64_t)left<<32|right,initialperm_data, 64);
 		left = (uint32_t)(temp >> 32);
 		right = (uint32_t)(temp & 0xffffffff);
 
@@ -221,7 +204,7 @@ uint64_t DES::fp_perm_alt(uint64_t block)
 		if (use_alt)
 			temp = fp_perm_alt((uint64_t)right << 32 | left);
 		else
-					temp = permutate((uint64_t)right<<32|left,inverseperm, 64);
+					temp = permutate((uint64_t)right<<32|left,inverseperm_data, 64);
 
 		right = (uint32_t)(temp & 0xffffffff);
 		left = (uint32_t)(temp >> 32);

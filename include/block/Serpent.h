@@ -11,10 +11,6 @@ namespace block {
 
 class Serpent final : public BlockCipher {
 public:
-	Serpent();
-
-	std::vector<std::vector<uint8_t>> SBox;
-  std::vector<std::vector<uint8_t>> invSBox;
 
 	std::vector<uint32_t> Subkeys;
 

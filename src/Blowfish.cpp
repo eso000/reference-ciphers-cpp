@@ -11,6 +11,7 @@
 namespace block {
 
 using namespace detail;
+using namespace tables::blowfish;
 
 FORCE_INLINE uint32_t blowfish_F(const Blowfish *bf, uint32_t x)
 {
@@ -82,7 +83,6 @@ FORCE_INLINE void blowfish_round(uint32_t *l, uint32_t *r, int i, const Blowfish
 		   is the cipher's 448-bit maximum. */
 		if (key.size() < 4 || key.size() > 56)
 			throw std::invalid_argument("Blowfish key must be 4 to 56 bytes, got " + std::to_string(key.size()));
-		std::vector<uint32_t> PBox(std::begin(PBox_data), std::end(PBox_data));
 		Subkeys.clear();
 		for (int i = 0; i < 18; ++i) {
 			size_t o = (size_t)(4 * i) % key.size();
@@ -90,15 +90,13 @@ FORCE_INLINE void blowfish_round(uint32_t *l, uint32_t *r, int i, const Blowfish
 			           | ((uint32_t)key[(o+1) % key.size()] << 16)
 			           | ((uint32_t)key[(o+2) % key.size()] << 8)
 			           | (uint32_t)key[(o+3) % key.size()];
-			Subkeys.push_back(PBox[i] ^ w);
+			Subkeys.push_back(PBox_data[i] ^ w);
 		}
 
-		std::vector<std::vector<uint32_t>> SBox;
-		for (const auto& row : SBox_data) SBox.emplace_back(std::begin(row), std::end(row));
-		SBoxes0 = SBox[0];
-		SBoxes1 = SBox[1];
-		SBoxes2 = SBox[2];
-		SBoxes3 = SBox[3];
+		SBoxes0 = SBox_data[0];
+		SBoxes1 = SBox_data[1];
+		SBoxes2 = SBox_data[2];
+		SBoxes3 = SBox_data[3];
 
 		uint8_t P[8] = {(uint8_t)0, (uint8_t)0, (uint8_t)0, (uint8_t)0,(uint8_t)0,(uint8_t)0,(uint8_t)0,(uint8_t)0};
 

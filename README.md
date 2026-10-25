@@ -47,6 +47,7 @@ Six modes of operation are shared by every cipher through the `BlockCipher` base
 
 - **Object-oriented API**: Each cipher inherits from the abstract `BlockCipher` base class, which provides shared bit manipulation, endianness helpers, and mode implementations.
 - **Shared infrastructure**: Bitwise helpers (`rotl`, `rotr`, byte extraction, big/little-endian load/store) are free functions in the private `src/bits.h` (`block::detail`), shared by the cipher implementations instead of being copied into each one.
+- **Constant tables**: S-boxes and the like are `inline constexpr std::array` objects in `src/*_data.h` (`block::tables::<cipher>`), shared by every instance. A cipher object holds only its key schedule.
 - **Spans, not pointers**: The mode methods take `std::span` (`encryptCBC(data, iv)`), so a buffer and its length travel together. Everything lives in the `block` namespace.
 - **Optimized implementations**: AES uses T-tables for efficient round computation; hot paths are marked with `__attribute__((always_inline))` where beneficial.
 - **Unified testing**: A shared `TestBase` framework and centralized test vectors (`tests/vectors.h`) provide consistent known-answer and round-trip testing across all ciphers.

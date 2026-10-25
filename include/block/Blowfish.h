@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <span>
 #include <vector>
@@ -10,15 +11,13 @@ namespace block {
 
 class Blowfish final : public BlockCipher {
 public:
-	
-	
-	std::vector<uint32_t> SBoxes0;
-	std::vector<uint32_t> SBoxes1;
-	std::vector<uint32_t> SBoxes2;
-	std::vector<uint32_t> SBoxes3;
+
+
+	std::array<uint32_t, 256> SBoxes0{};
+	std::array<uint32_t, 256> SBoxes1{};
+	std::array<uint32_t, 256> SBoxes2{};
+	std::array<uint32_t, 256> SBoxes3{};
 	std::vector<uint32_t> Subkeys;
-	
-	
 
 	void generateKeys(const std::vector<uint8_t>& key);
 	

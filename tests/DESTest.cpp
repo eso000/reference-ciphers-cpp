@@ -5,6 +5,7 @@
 #include "TestBase.h"
 #include "vectors.h"
 #include "block/DES.h"
+#include "../src/DES_data.h"
 
 using namespace block;
 
@@ -62,7 +63,7 @@ int main()
 		for (int i = 0; i < 256; ++i)
 		{
 			x = x * 6364136223846793005ULL + 1442695040888963407ULL;
-			if (DES::ip_perm_alt(x) == c.permutate(x, c.initialperm, 64))
+			if (DES::ip_perm_alt(x) == DES::permutate(x, tables::des::initialperm_data, 64))
 				++checked;
 		}
 		CHECK(checked == 256, "ip_perm_alt equals IP table (256 random blocks)");
@@ -71,7 +72,7 @@ int main()
 		for (int i = 0; i < 256; ++i)
 		{
 			x = x * 6364136223846793005ULL + 1442695040888963407ULL;
-			if (DES::fp_perm_alt(x) == c.permutate(x, c.inverseperm, 64))
+			if (DES::fp_perm_alt(x) == DES::permutate(x, tables::des::inverseperm_data, 64))
 				++checked;
 		}
 		CHECK(checked == 256, "fp_perm_alt equals FP table (256 random blocks)");

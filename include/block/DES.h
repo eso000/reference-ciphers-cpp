@@ -12,30 +12,14 @@ namespace block {
 class DES final : public BlockCipher {
 public:
 
-	DES(bool useAlt = true);
+	explicit DES(bool useAlt = true) : use_alt(useAlt) {}
 
 	bool use_alt;
 
-	std::vector<uint8_t> initialperm;
-	std::vector<uint8_t> inverseperm;
-	std::vector<uint8_t> ExpentionPerm;
-	std::vector<uint8_t> SBoxes0;
-	std::vector<uint8_t> SBoxes1;
-	std::vector<uint8_t> SBoxes2;
-	std::vector<uint8_t> SBoxes3;
-	std::vector<uint8_t> SBoxes4;
-	std::vector<uint8_t> SBoxes5;
-	std::vector<uint8_t> SBoxes6;
-	std::vector<uint8_t> SBoxes7;
-
-
-	std::vector<uint8_t> keyperm1;
-	std::vector<uint8_t> keyperm2;
-	std::vector<uint8_t> PBox;
 
 	std::vector<uint64_t> Subkeys;
 
-	uint64_t permutate(uint64_t x, std::vector<uint8_t> P, int base_size) const;
+	static uint64_t permutate(uint64_t x, std::span<const uint8_t> P, int base_size);
 
 	uint64_t feistel(uint32_t r, int i) const;
 

@@ -13,27 +13,6 @@ namespace block {
 
 class AES final : public BlockCipher {
 public:
-	AES();
-
-	std::vector<uint8_t> SBoxes;
-	std::vector<uint8_t> InvSBoxes;
-
-	std::vector<uint8_t> GF2;
-	std::vector<uint8_t> GF3;
-	std::vector<uint8_t> GF9;
-	std::vector<uint8_t> GF11;
-	std::vector<uint8_t> GF13;
-	std::vector<uint8_t> GF14;
-
-	std::vector<uint32_t> MixRowCol0;
-	std::vector<uint32_t> MixRowCol1;
-	std::vector<uint32_t> MixRowCol2;
-	std::vector<uint32_t> MixRowCol3;
-
-	std::vector<uint32_t> invMixRowCol0;
-	std::vector<uint32_t> invMixRowCol1;
-	std::vector<uint32_t> invMixRowCol2;
-	std::vector<uint32_t> invMixRowCol3;
 
 
 	std::vector<uint32_t> Subkeys;
@@ -64,7 +43,7 @@ public:
 
 	std::vector<uint8_t> decrypt(std::span<const uint8_t> plt) const;
 
-	
+
 };
 
 } // namespace block

@@ -11,14 +11,7 @@
 namespace block {
 
 using namespace detail;
-
-Serpent::Serpent()
-{
-	SBox.clear();
-	for (const auto& r : SBox_data) SBox.emplace_back(std::begin(r), std::end(r));
-	invSBox.clear();
-	for (const auto& r : invSBox_data) invSBox.emplace_back(std::begin(r), std::end(r));
-}
+using namespace tables::serpent;
 
 
 /* The block is held as four 32-bit words in little-endian bit order, so the
@@ -165,7 +158,7 @@ static uint32_t serpentWordFromHex(const std::string &s)
                 r3 |= r0;
                 r1 ^= r3;
                 r4 ^= r3;
-                
+
                 *x0 = r1;
                 *x1 = r4;
                 *x2 = r2;
@@ -191,7 +184,7 @@ static uint32_t serpentWordFromHex(const std::string &s)
                 r1 ^= r0;
                 r0 &= r2;
                 r0 ^= r4;
-                
+
                 *x0 = r2;
                 *x1 = r0;
                 *x2 = r3;
@@ -215,7 +208,7 @@ static uint32_t serpentWordFromHex(const std::string &s)
                 r1 ^= r3;
                 r1 ^= r4;
                 r4 ^= 0xffffffff;
-                
+
                 *x0 = r2;
                 *x1 = r3;
                 *x2 = r1;
@@ -242,7 +235,7 @@ static uint32_t serpentWordFromHex(const std::string &s)
                 r2 = r1;
                 r1 |= r3;
                 r1 ^= r0;
-                
+
                 *x0 = r1;
                 *x1 = r2;
                 *x2 = r3;
@@ -270,7 +263,7 @@ static uint32_t serpentWordFromHex(const std::string &s)
                 r2 &= r3;
                 r0 ^= 0xffffffff;
                 r4 ^= r2;
-                
+
                 *x0 = r1;
                 *x1 = r4;
                 *x2 = r0;
@@ -297,7 +290,7 @@ static uint32_t serpentWordFromHex(const std::string &s)
                 r0 ^= r4;
                 r4 |= r3;
                 r2 ^= r4;
-                
+
                 *x0 = r1;
                 *x1 = r3;
                 *x2 = r0;
@@ -323,7 +316,7 @@ static uint32_t serpentWordFromHex(const std::string &s)
                 r3 ^= 0xffffffff;
                 r2 &= r4;
                 r2 ^= r3;
-                
+
                 *x0 = r0;
                 *x1 = r1;
                 *x2 = r4;
@@ -351,7 +344,7 @@ static uint32_t serpentWordFromHex(const std::string &s)
                 r2 ^= 0xffffffff;
                 r2 |= r0;
                 r4 ^= r2;
-                
+
                 *x0 = r4;
                 *x1 = r3;
                 *x2 = r1;
@@ -368,7 +361,7 @@ static uint32_t serpentWordFromHex(const std::string &s)
 
         for (int x = 0; x < 32; ++x)
         {
-            uint8_t newbits = invSBox[n][(((*x0>>x)&1) <<0 |
+            uint8_t newbits = invSBox_data[n][(((*x0>>x)&1) <<0 |
                                           ((*x1>>x)&1) <<1 |
                                           ((*x2>>x)&1) <<2 |
                                           ((*x3>>x)&1) <<3 )];
@@ -420,7 +413,7 @@ static uint32_t serpentWordFromHex(const std::string &s)
      for (int i=0;i<33;++i)
      {
             applySBox(&w[4*i+8],&w[4*i+1+8],&w[4*i+2+8],&w[4*i+3+8],((3 - i) % 8 + 8) % 8);
-     }        
+     }
         Subkeys.clear();
         for (uint32_t *i = &w[0]+8; i < &w[0]+140; ++i)
         {
@@ -436,7 +429,7 @@ static uint32_t serpentWordFromHex(const std::string &s)
 			uint32_t w1 = serpentLoad32(x1);
 			uint32_t w2 = serpentLoad32(x2);
 			uint32_t w3 = serpentLoad32(x3);
-			
+
 
 			serpent_round(&w0, &w1, &w2, &w3, 0, this);
 			serpent_round(&w0, &w1, &w2, &w3, 1, this);
@@ -469,7 +462,7 @@ static uint32_t serpentWordFromHex(const std::string &s)
 			serpent_round(&w0, &w1, &w2, &w3, 28, this);
 			serpent_round(&w0, &w1, &w2, &w3, 29, this);
 			serpent_round(&w0, &w1, &w2, &w3, 30, this);
-			
+
 			w0 ^= Subkeys[31<<2];
       w1 ^= Subkeys[(31<<2)+1];
       w2 ^= Subkeys[(31<<2)+2];
@@ -479,7 +472,7 @@ static uint32_t serpentWordFromHex(const std::string &s)
       w1 ^= Subkeys[(32<<2)+1];
       w2 ^= Subkeys[(32<<2)+2];
       w3 ^= Subkeys[(32<<2)+3];
-      
+
       serpentStore32(x0, w0);
 
       serpentStore32(x1, w1);

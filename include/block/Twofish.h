@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <vector>
 #include <span>
@@ -11,29 +12,20 @@ namespace block {
 
 class Twofish final : public BlockCipher {
 public:
-	Twofish();
-	std::vector<std::vector<uint8_t>> RS;
-
-	std::vector<std::vector<uint8_t>> MDS;
-	std::vector<uint8_t> MDSEF;
-	std::vector<uint8_t> MDS5B;
-	
-	std::vector<uint8_t> q0;
-	std::vector<uint8_t> q1;
 
 
-	std::vector<uint32_t> Sbox0;
-	std::vector<uint32_t> Sbox1;
-	std::vector<uint32_t> Sbox2;
-	std::vector<uint32_t> Sbox3;
+	std::array<uint32_t, 256> Sbox0{};
+	std::array<uint32_t, 256> Sbox1{};
+	std::array<uint32_t, 256> Sbox2{};
+	std::array<uint32_t, 256> Sbox3{};
 
 	std::vector<uint32_t> Subkeys;
 
-	
+
 	uint32_t multgf(uint32_t a,uint32_t b,uint32_t pol) const;
 
 	uint8_t multgf(uint16_t a,uint16_t b) const;
-	
+
 	uint8_t RSAmul(int i, const uint8_t *p) const;
 
 	void generateKeys(const std::vector<uint8_t>& key);
