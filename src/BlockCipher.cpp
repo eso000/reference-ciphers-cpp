@@ -1,8 +1,10 @@
 #include <algorithm>
 #include <array>
+#include <filesystem>
 #include <fstream>
 #include <iterator>
 #include <stdexcept>
+#include <string>
 
 #include "block/BlockCipher.h"
 
@@ -324,75 +326,38 @@ std::vector<uint8_t> BlockCipher::decryptMode(std::span<const uint8_t> plt, Bloc
 	return out;
 }
 
-static Padding filePadding(int p)
+namespace {
+
+std::vector<uint8_t> readFile(const std::filesystem::path &path)
 {
-	switch (p)
-	{
-		case 0: return Padding::Zeros;
-		case 2: return Padding::ANSIX923;
-		case 3: return Padding::ISO78164;
-		default: return Padding::PKCS7;
-	}
+	std::ifstream in(path, std::ios::binary);
+	if (!in)
+		throw std::runtime_error("cannot open " + path.string() + " for reading");
+	return std::vector<uint8_t>(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
 }
 
-static void encryptFileImpl(const BlockCipher &c, const std::string &path)
+void writeFile(const std::filesystem::path &path, std::span<const uint8_t> data)
 {
-	std::ifstream input_file(path, std::ios::binary);
-	std::vector<uint8_t> vec((std::istreambuf_iterator<char>(input_file)), std::istreambuf_iterator<char>());
-	input_file.close();
-	const size_t bs = c.blockSize();
-	const Padding p = filePadding(c.padding);
-	const size_t m = (p == Padding::Zeros && vec.size() % bs == 0) ? 0 : missingFor(vec.size(), bs);
-	pad(vec, m, p);
-	if (!vec.empty())
-	{
-		if (c.mode == 1)
-			c.encryptCBC(vec, std::vector<uint8_t>(bs, 0xff));
-		else
-			c.encryptECB(vec);
-	}
-	std::ofstream file(path);
-	file.write(reinterpret_cast<const char*>(vec.data()), static_cast<std::streamsize>(vec.size()));
-	file.close();
+	std::ofstream out(path, std::ios::binary | std::ios::trunc);
+	out.write(reinterpret_cast<const char *>(data.data()), static_cast<std::streamsize>(data.size()));
+	if (!out)
+		throw std::runtime_error("cannot write " + path.string());
 }
 
-static void decryptFileImpl(const BlockCipher &c, const std::string &path)
-{
-	std::ifstream input_file(path, std::ios::binary);
-	std::vector<uint8_t> vec((std::istreambuf_iterator<char>(input_file)), std::istreambuf_iterator<char>());
-	input_file.close();
-	if (!vec.empty())
-	{
-		if (c.mode == 1)
-		{
-			std::vector<uint8_t> iv(c.blockSize(), 0xff);
-			c.decryptCBC(vec, iv);
-		}
-		else
-			c.decryptECB(vec);
-	}
-	(void) unpad(vec, filePadding(c.padding), c.blockSize());
-	std::ofstream file(path);
-	file.write(reinterpret_cast<const char*>(vec.data()), static_cast<std::streamsize>(vec.size()));
-	file.close();
 }
 
-void BlockCipher::encrypt_File(char* path) const
+void BlockCipher::encryptFile(const std::filesystem::path &path) const
 {
 	requireKey();
-	encryptFileImpl(*this, path);
+	const std::vector<uint8_t> iv(mode == BlockMode::ECB ? 0 : blockSize(), 0xff);
+	writeFile(path, encryptMode(readFile(path), mode, padding, iv));
 }
 
-void BlockCipher::encrypt_FileS(std::string path) const
+void BlockCipher::decryptFile(const std::filesystem::path &path) const
 {
 	requireKey();
-	encryptFileImpl(*this, path);
-}
-
-void BlockCipher::decrypt_File(char* path) const
-{
-	requireKey();
-	decryptFileImpl(*this, path);
+	const std::vector<uint8_t> iv(mode == BlockMode::ECB ? 0 : blockSize(), 0xff);
+	writeFile(path, decryptMode(readFile(path), mode, padding, iv));
 }
 
 } // namespace block

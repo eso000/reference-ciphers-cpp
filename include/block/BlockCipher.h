@@ -2,8 +2,8 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <span>
-#include <string>
 #include <vector>
 
 #include "block/Padding.h"
@@ -16,9 +16,10 @@ class BlockCipher {
 public:
 	virtual ~BlockCipher() = default;
 
-	int mode = 0;
+	/* The mode and padding the file functions below use. */
+	BlockMode mode = BlockMode::ECB;
 
-	int padding = 1;
+	Padding padding = Padding::PKCS7;
 
 	[[nodiscard]] virtual size_t blockSize() const noexcept = 0;
 
@@ -64,11 +65,15 @@ public:
 	std::vector<uint8_t> decryptMode(std::span<const uint8_t> plt, BlockMode mode,
 			Padding padding, std::span<const uint8_t> iv = {}) const;
 
-	void encrypt_File(char* path) const;
+	/* Encrypt or decrypt a file in place with the `mode` and `padding` members.
+	   The input is read and processed completely before the file is rewritten,
+	   so an error leaves it untouched. A chained mode uses a fixed IV of 0xff
+	   bytes, which is fine for demonstrations and not for real data. Throws
+	   std::runtime_error when the file cannot be read or written, and the same
+	   exceptions as encryptMode and decryptMode otherwise. */
+	void encryptFile(const std::filesystem::path &path) const;
 
-	void encrypt_FileS(std::string path) const;
-
-	void decrypt_File(char* path) const;
+	void decryptFile(const std::filesystem::path &path) const;
 
 protected:
 	/* Set by a successful generateKeys() call. Every operation that needs the

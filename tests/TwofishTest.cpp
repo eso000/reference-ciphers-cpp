@@ -119,9 +119,9 @@ int main()
 		for (int i = 0; i < 32; ++i)
 			orig.push_back((uint8_t)(0x10 + i));
 		writeFile(path16, orig);
-		c.encrypt_File(path16);
-		CHECK(!compareVector(readFile(path16), orig), "block-aligned file changed by encrypt_File");
-		c.decrypt_File(path16);
+		c.encryptFile(path16);
+		CHECK(!compareVector(readFile(path16), orig), "block-aligned file changed by encryptFile");
+		c.decryptFile(path16);
 		CHECK(compareVector(readFile(path16), orig), "block-aligned file round trip");
 	}
 	{
@@ -130,10 +130,10 @@ int main()
 		c.generateKeys(hexToVec("0123456789abcdef0123456789abcdef"));
 		std::vector<uint8_t> orig({0xAA, 0xBB, 0xCC});
 		writeFile(path3, orig);
-		c.encrypt_File(path3);
-		CHECK(readFile(path3).size() == 16, "short file padded to a full block by encrypt_File");
-		CHECK(!compareVector(readFile(path3), orig), "short file changed by encrypt_File");
-		c.decrypt_File(path3);
+		c.encryptFile(path3);
+		CHECK(readFile(path3).size() == 16, "short file padded to a full block by encryptFile");
+		CHECK(!compareVector(readFile(path3), orig), "short file changed by encryptFile");
+		c.decryptFile(path3);
 		CHECK(compareVector(readFile(path3), orig), "short file round trip after padding");
 	}
 
@@ -146,10 +146,10 @@ int main()
 		for (int i = 0; i < 32; ++i)
 			orig.push_back((uint8_t)(0x30 + i));
 		writeFile(path, orig);
-		c.mode = 1;
-		c.encrypt_File(path);
-		CHECK(!compareVector(readFile(path), orig), "cbc mode: file changed by encrypt_File");
-		c.decrypt_File(path);
+		c.mode = BlockMode::CBC;
+		c.encryptFile(path);
+		CHECK(!compareVector(readFile(path), orig), "cbc mode: file changed by encryptFile");
+		c.decryptFile(path);
 		CHECK(compareVector(readFile(path), orig), "cbc mode: file round trip");
 	}
 

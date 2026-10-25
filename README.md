@@ -116,7 +116,7 @@ int main() {
 }
 ```
 
-Individual ciphers can also be used at the block level via `encryptBlock()`/`decryptBlock()`, and the base class provides in-place mode methods that take a `std::span` (`encryptCBC(data, iv)`, `decryptECB(data)`, etc.). The library also supports file encryption/decryption via `encrypt_File()` and `decrypt_File()` methods.
+Individual ciphers can also be used at the block level via `encryptBlock()`/`decryptBlock()`, and the base class provides in-place mode methods that take a `std::span` (`encryptCBC(data, iv)`, `decryptECB(data)`, etc.). The library also supports file encryption/decryption via `encryptFile()` and `decryptFile()` (which take a `std::filesystem::path` and use the `mode` and `padding` members).
 
 ## Testing and verification
 

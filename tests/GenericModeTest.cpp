@@ -1,3 +1,6 @@
+#include <filesystem>
+#include <fstream>
+#include <iterator>
 #include <vector>
 #include <string>
 #include <stdexcept>
@@ -309,6 +312,86 @@ static void runModeErrors(const char *name, BlockCipher& c)
 /* Every operation that consumes the key schedule must refuse a cipher that
    has no keys. A failed generateKeys() also leaves the cipher unkeyed rather
    than exposing a partial or stale schedule. */
+static std::vector<uint8_t> slurp(const std::filesystem::path &p)
+{
+	std::ifstream in(p, std::ios::binary);
+	return std::vector<uint8_t>(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+}
+
+static void spit(const std::filesystem::path &p, const std::vector<uint8_t> &v)
+{
+	std::ofstream out(p, std::ios::binary | std::ios::trunc);
+	out.write(reinterpret_cast<const char *>(v.data()), static_cast<std::streamsize>(v.size()));
+}
+
+/* The file API runs encryptMode/decryptMode over a file, so every mode must
+   round trip at every length, the ciphertext must match the in-memory result,
+   and a failure must leave the file as it was. */
+static void runFileApi(const char *name, BlockCipher &c)
+{
+	const std::filesystem::path path = std::filesystem::temp_directory_path() / "refciphers_file_api.bin";
+	const BlockMode modes[] = {BlockMode::ECB, BlockMode::CBC, BlockMode::PCBC,
+			BlockMode::CFB, BlockMode::OFB, BlockMode::CTR};
+	const char *modeNames[] = {"ECB", "CBC", "PCBC", "CFB", "OFB", "CTR"};
+	const size_t bs = c.blockSize();
+	const size_t lens[] = {0, 1, bs, 3 * bs + 5};
+	char label[160];
+
+	for (size_t m = 0; m < 6; ++m)
+	{
+		for (size_t len : lens)
+		{
+			std::vector<uint8_t> pt;
+			for (size_t i = 0; i < len; ++i)
+				pt.push_back((uint8_t)(0x21 + 7 * i));
+			c.mode = modes[m];
+			c.padding = Padding::PKCS7;
+			bool ok = false;
+			try
+			{
+				spit(path, pt);
+				c.encryptFile(path);
+				c.decryptFile(path);
+				ok = compareVector(slurp(path), pt);
+			}
+			catch (...)
+			{
+			}
+			snprintf(label, sizeof(label), "%s file round trip, %s, %zu bytes", name, modeNames[m], len);
+			CHECK(ok, label);
+		}
+	}
+
+	{
+		std::vector<uint8_t> pt(3 * bs + 5, 0x42);
+		c.mode = BlockMode::CBC;
+		c.padding = Padding::PKCS7;
+		spit(path, pt);
+		c.encryptFile(path);
+		const std::vector<uint8_t> iv(bs, 0xff);
+		snprintf(label, sizeof(label), "%s encryptFile matches encryptMode with the fixed IV", name);
+		CHECK(compareVector(slurp(path), c.encryptMode(pt, BlockMode::CBC, Padding::PKCS7, iv)), label);
+	}
+
+	c.mode = BlockMode::ECB;
+	c.padding = Padding::PKCS7;
+	std::filesystem::remove(path);
+	snprintf(label, sizeof(label), "%s encryptFile on a missing file throws runtime_error", name);
+	CHECK(throwsAs<std::runtime_error>([&] { c.encryptFile(path); }), label);
+	snprintf(label, sizeof(label), "%s encryptFile on a missing file creates nothing", name);
+	CHECK(!std::filesystem::exists(path), label);
+
+	{
+		const std::vector<uint8_t> notCiphertext(bs + 1, 0x33);
+		spit(path, notCiphertext);
+		snprintf(label, sizeof(label), "%s decryptFile of a non-block-aligned file throws", name);
+		CHECK(throwsInvalidArgument([&] { c.decryptFile(path); }), label);
+		snprintf(label, sizeof(label), "%s a failed decryptFile leaves the file unchanged", name);
+		CHECK(compareVector(slurp(path), notCiphertext), label);
+	}
+	std::filesystem::remove(path);
+}
+
 template <typename BadKey, typename GoodKey>
 static void runKeyGuard(const char *name, BlockCipher &c, BadKey badKey, GoodKey goodKey)
 {
@@ -340,8 +423,8 @@ static void runKeyGuard(const char *name, BlockCipher &c, BadKey badKey, GoodKey
 		c.decryptMode(std::vector<uint8_t>(), BlockMode::ECB, Padding::None);
 	}), label);
 
-	snprintf(label, sizeof(label), "%s encrypt_File without generateKeys throws", name);
-	CHECK(throwsAs<std::logic_error>([&] { c.encrypt_File(path); }), label);
+	snprintf(label, sizeof(label), "%s encryptFile without generateKeys throws", name);
+	CHECK(throwsAs<std::logic_error>([&] { c.encryptFile(path); }), label);
 
 	snprintf(label, sizeof(label), "%s rejects an invalid key", name);
 	CHECK(throwsInvalidArgument(badKey), label);
@@ -457,6 +540,7 @@ int main()
 		runStreamTail("AES", c, d);
 		runStreamPaddingNotStripped(c, d);
 		runModeErrors("AES", c);
+		runFileApi("AES", c);
 	}
 	{
 		Blowfish c, d;
@@ -466,6 +550,7 @@ int main()
 		runStreamTail("Blowfish", c, d);
 		runStreamPaddingNotStripped(c, d);
 		runModeErrors("Blowfish", c);
+		runFileApi("Blowfish", c);
 	}
 	{
 		Twofish c, d;
@@ -475,6 +560,7 @@ int main()
 		runStreamTail("Twofish", c, d);
 		runStreamPaddingNotStripped(c, d);
 		runModeErrors("Twofish", c);
+		runFileApi("Twofish", c);
 	}
 	{
 		DES c, d;
@@ -484,6 +570,7 @@ int main()
 		runStreamTail("DES", c, d);
 		runStreamPaddingNotStripped(c, d);
 		runModeErrors("DES", c);
+		runFileApi("DES", c);
 	}
 	{
 		Serpent c, d;
@@ -493,6 +580,7 @@ int main()
 		runStreamTail("Serpent", c, d);
 		runStreamPaddingNotStripped(c, d);
 		runModeErrors("Serpent", c);
+		runFileApi("Serpent", c);
 	}
 
 	printf("== key schedule guard ==\n");
