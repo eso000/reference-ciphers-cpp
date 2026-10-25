@@ -104,7 +104,7 @@ int main()
 	printf("== Blowfish known-answer tests (official ECB vectors) ==\n");
 	suite.runEcbKats(asKats(BLOWFISH_OFFICIAL));
 
-	printf("== official set_key vectors (key lengths 1..24 bytes) ==\n");
+	printf("== official set_key vectors (key lengths 4..24 bytes) ==\n");
 	suite.runEcbKats(asKats(BLOWFISH_SET_KEY));
 
 	printf("== repo vector (unconfirmed provenance) ==\n");
@@ -209,19 +209,19 @@ int main()
 
 	printf("== standard key schedule (non-aligned key lengths) ==\n");
 	{
-		/* The published set_key vectors above already pin the 1, 2 and
-		   3-byte schedules, so these round trips only need to confirm the
+		/* The published set_key vectors above already pin the 4, 5, 6 and
+		   7-byte schedules, so these round trips only need to confirm the
 		   non-word-aligned path still runs both ways. */
 		Blowfish c, d;
-		std::vector<uint8_t> kb = hexToVec("AABBCC");
+		std::vector<uint8_t> kb = hexToVec("AABBCCDDEE");
 		c.generateKeys(kb);
 		d.generateKeys(kb);
 		std::vector<uint8_t> v({0x12, 0x34, 0x56, 0xAB, 0xCD, 0x13, 0x25, 0x36});
 		std::vector<uint8_t> w = v;
 		c.encryptECB(&v[0], 8);
-		CHECK(!compareVector(v, w), "3-byte key: ciphertext differs from plaintext");
+		CHECK(!compareVector(v, w), "5-byte key: ciphertext differs from plaintext");
 		d.decryptECB(&v[0], 8);
-		CHECK(compareVector(v, w), "3-byte key: encrypt+decrypt restores plaintext");
+		CHECK(compareVector(v, w), "5-byte key: encrypt+decrypt restores plaintext");
 	}
 	{
 		Blowfish c, d;
@@ -245,16 +245,11 @@ int main()
 		try { c.generateKeys(std::vector<uint8_t>()); }
 		catch (std::invalid_argument &) { threw = true; }
 		CHECK(threw, "empty key rejected");
-		threw = false;
-		try { c.generateKeys(std::vector<uint8_t>(57, 0xAB)); }
-		catch (std::invalid_argument &) { threw = true; }
-		CHECK(threw, "57-byte key rejected");
 
-		/* 1 through 56 bytes are all valid; the published set_key vectors
-		   cover the short end. Every length in that range is exercised here,
-		   because the lower bound is easy to tighten by accident and doing so
-		   would quietly drop three of those vectors. */
-		const size_t accepted[] = {1, 2, 3, 4, 5, 6, 7, 8, 16, 24, 32, 48, 55, 56};
+		/* 4 through 56 bytes are all valid. Every length in that range is
+		   exercised here, because the lower bound is easy to loosen by
+		   accident, and the C and Python siblings reject anything shorter. */
+		const size_t accepted[] = {4, 5, 6, 7, 8, 16, 24, 32, 48, 55, 56};
 		for (size_t n : accepted)
 		{
 			threw = false;
@@ -263,6 +258,17 @@ int main()
 			char name[96];
 			snprintf(name, sizeof(name), "%zu-byte key accepted", n);
 			CHECK(!threw, name);
+		}
+
+		const size_t tooShort[] = {1, 2, 3};
+		for (size_t n : tooShort)
+		{
+			threw = false;
+			try { c.generateKeys(std::vector<uint8_t>(n, 0xAB)); }
+			catch (std::invalid_argument &) { threw = true; }
+			char name[96];
+			snprintf(name, sizeof(name), "%zu-byte key rejected (minimum is 4)", n);
+			CHECK(threw, name);
 		}
 
 		const size_t tooLong[] = {57, 64, 128};

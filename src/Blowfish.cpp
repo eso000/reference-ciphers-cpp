@@ -71,14 +71,13 @@ FORCE_INLINE void blowfish_round(uint32_t *l, uint32_t *r, int i, const Blowfish
 	
 	void Blowfish::generateKeys(const std::vector<uint8_t>& key){
 		keySet = false;
-		/* Blowfish's published key schedule covers 1- to 24-byte keys, so the lower
-		   bound stays at 1: Schneier's own set_key vectors for the 1, 2 and
-		   3-byte cases are part of the definition and this implementation
-		   computes them. Python rejects those three lengths and so cannot
-		   reproduce those vectors. The upper bound is 56 bytes, from the
-		   cipher's 448-bit maximum. */
-		if (key.empty() || key.size() > 56)
-			throw std::invalid_argument("Blowfish key must be 1 to 56 bytes, got " + std::to_string(key.size()));
+		/* Blowfish keys are 4 to 56 bytes (32 to 448 bits). The lower bound is
+		   part of the specification, so shorter keys are rejected here even
+		   though Schneier's set_key page also lists 1- to 3-byte examples;
+		   the C and Python siblings enforce the same range. The upper bound
+		   is the cipher's 448-bit maximum. */
+		if (key.size() < 4 || key.size() > 56)
+			throw std::invalid_argument("Blowfish key must be 4 to 56 bytes, got " + std::to_string(key.size()));
 		std::vector<uint32_t> PBox(std::begin(PBox_data), std::end(PBox_data));
 		Subkeys.clear();
 		for (int i = 0; i < 18; ++i) {

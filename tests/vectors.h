@@ -21,7 +21,8 @@
              does not appear in those sources, so its provenance is
              unconfirmed.
    Blowfish  Schneier's 34-entry official ECB set and the official set_key
-             vectors for 1- to 24-byte keys.
+             vectors for 4- to 24-byte keys (the 1- to 3-byte examples on
+             that page are outside the supported 4-56 byte key range).
    Twofish   the official KATs (Schneier et al., B.2).
    Serpent   the official NESSIE/verified sets for 128/192/256-bit keys as
              published by Biham et al., in little-endian octet order, plus
@@ -125,9 +126,6 @@ static const BlockKat BLOWFISH_OFFICIAL[] = {
 static const char BLOWFISH_SET_KEY_PT[] = "FEDCBA9876543210";
 
 static const BlockKat BLOWFISH_SET_KEY[] = {
-	{"set_key 1-byte key", "F0", BLOWFISH_SET_KEY_PT, "F9AD597C49DB005E"},
-	{"set_key 2-byte key", "F0E1", BLOWFISH_SET_KEY_PT, "E91D21C1D961A6D6"},
-	{"set_key 3-byte key", "F0E1D2", BLOWFISH_SET_KEY_PT, "E9C2B70A1BC65CF3"},
 	{"set_key 4-byte key", "F0E1D2C3", BLOWFISH_SET_KEY_PT, "BE1E639408640F05"},
 	{"set_key 5-byte key", "F0E1D2C3B4", BLOWFISH_SET_KEY_PT, "B39E44481BDB1E6E"},
 	{"set_key 6-byte key", "F0E1D2C3B4A5", BLOWFISH_SET_KEY_PT, "9457AA83B1928C0D"},

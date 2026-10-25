@@ -37,6 +37,7 @@ Six modes of operation are shared by every cipher through the `BlockCipher` base
 
 - **ECB, CBC, PCBC, CFB, OFB, CTR** — all implemented in a common mode layer.
 - **Block modes (ECB, CBC, PCBC)** operate on whole blocks and support padding. Schemes: `Padding::None`, `Padding::Zeros`, `Padding::PKCS7`, `Padding::ANSIX923`, `Padding::ISO78164`. `Padding::None` requires block-aligned input. `Padding::PKCS7`, `Padding::ANSIX923` and `Padding::ISO78164` always add a padding block, even when the message is aligned; `Padding::Zeros` only fills up to the next block boundary, so empty and aligned messages are not extended.
+- **`Padding::Zeros` cannot be removed unambiguously**: zero padding is indistinguishable from genuine zero bytes at the end of the message, so `unpad` removes nothing for this scheme. The caller must trim trailing zeros or retain the original length, and trimming loses any genuine trailing zero bytes. Use a strict scheme such as `PKCS7` when the data may end in zeros.
 - **Unpadding** is validated: a malformed strict padding or an empty ciphertext with a strict scheme is an error, not silently-returned data.
 - **Stream-like modes (CFB, OFB, CTR)** work on arbitrary lengths and ignore the padding argument, so the ciphertext is exactly as long as the plaintext.
 - An IV is required for every mode except ECB and must be exactly one block long; a wrong-sized IV is an error rather than being silently adjusted.
