@@ -48,7 +48,7 @@ Six modes of operation are shared by every cipher through the `BlockCipher` base
 - **Object-oriented API**: Each cipher inherits from the abstract `BlockCipher` base class, which provides shared bit manipulation, endianness helpers, and mode implementations.
 - **Shared infrastructure**: Bitwise helpers (`rotl`, `rotr`, byte extraction, big/little-endian load/store) are free functions in the private `src/bits.h` (`block::detail`), shared by the cipher implementations instead of being copied into each one.
 - **Constant tables**: S-boxes and the like are `inline constexpr std::array` objects in `src/*_data.h` (`block::tables::<cipher>`), shared by every instance. A cipher object holds only its key schedule.
-- **Spans, not pointers**: The mode methods take `std::span` (`encryptCBC(data, iv)`), so a buffer and its length travel together. Everything lives in the `block` namespace.
+- **Spans, not pointers**: The mode methods take `std::span` (`encryptCBC(data, iv)`), so a buffer and its length travel together. Keys are passed as `std::span<const uint8_t>`, like the C and Python siblings. Everything lives in the `block` namespace.
 - **Optimized implementations**: AES uses T-tables for efficient round computation; hot paths are marked with `__attribute__((always_inline))` where beneficial.
 - **Unified testing**: A shared `TestBase` framework and centralized test vectors (`tests/vectors.h`) provide consistent known-answer and round-trip testing across all ciphers.
 
@@ -94,8 +94,12 @@ make CXX=clang++ CXXFLAGS="-std=c++20 -O1 -g -Wall -Wextra -Wpedantic -Werror -f
 
 int main() {
     block::AES aes;
-    // Key from hex string
-    aes.generateKeys("2b7e151628aed2a6abf7158809cf4f3c");
+    // Keys are raw bytes: 16, 24 or 32 for AES
+    const std::vector<uint8_t> key = {
+        0x2b,0x7e,0x15,0x16,0x28,0xae,0xd2,0xa6,
+        0xab,0xf7,0x15,0x88,0x09,0xcf,0x4f,0x3c
+    };
+    aes.generateKeys(key);
 
     // Plaintext
     std::vector<uint8_t> pt = {

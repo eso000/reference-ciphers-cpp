@@ -1,3 +1,5 @@
+#include <algorithm>
+#include <array>
 #include <vector>
 #include <string>
 #include <stdexcept>
@@ -72,38 +74,6 @@ FORCE_INLINE void serpent_invRound(uint32_t *x0, uint32_t *x1, uint32_t *x2, uin
 	serpent_addRoundKey(x0, x1, x2, x3, i, s);
 }
 
-	static std::string padKeyBit(std::string key)
-	{
-		if (key.empty())
-			key = "00";
-		if (key.size() % 2 == 1)
-			key += "0";
-		if ((int)key.size() >= 64)
-			return key.substr(0, 64);
-		std::string bin;
-		for (size_t i = 0; i < key.size(); ++i)
-		{
-			uint8_t v = (uint8_t)std::stoul(key.substr(i,1), 0, 16);
-			for (int b = 3; b >= 0; --b)
-				bin += ((v>>b)&1) ? '1' : '0';
-		}
-// The spec pads short keys by appending a '1' bit, i.e. a byte
-		// of 0x01 right after the key bytes.
-		bin += "00000001";
-	while ((int)bin.size() < 256)
-	{
-		bin += '0';
-	}
-		std::string out;
-		for (int i = 0; i < 256; i += 4)
-		{
-			int v = ((bin[i]-'0')<<3)|((bin[i+1]-'0')<<2)|((bin[i+2]-'0')<<1)|(bin[i+3]-'0');
-			out += "0123456789abcdef"[v];
-		}
-		return out;
-	}
-
-
 /* Word and byte conversion follow Serpent's bit order (Section 3.3): the first
    bit of the block is the least significant bit of word 0, so the four bytes of
    a word are read and written little-endian and left unreversed. */
@@ -121,15 +91,6 @@ static void serpentStore32(uint8_t *p, uint32_t w)
 	p[1] = (uint8_t)(w >> 8);
 	p[2] = (uint8_t)(w >> 16);
 	p[3] = (uint8_t)(w >> 24);
-}
-
-/* The same little-endian word, read from eight hex characters. */
-static uint32_t serpentWordFromHex(const std::string &s)
-{
-	uint32_t result = 0;
-	for (int i = 0; i < 4; ++i)
-		result |= (uint32_t)std::stoul(s.substr(2 * i, 2), 0, 16) << (8 * i);
-	return result;
 }
 
 	void Serpent::applySBox(uint32_t *x0,uint32_t *x1,uint32_t *x2, uint32_t *x3, int n) const{
@@ -377,25 +338,30 @@ static uint32_t serpentWordFromHex(const std::string &s)
         *x3 = nx3;
     }
 
-	void Serpent::generateKeys(std::string key)
+	void Serpent::generateKeys(std::span<const uint8_t> key)
 	{
     keySet = false;
     /* Serpent's specification accepts any key of 1 to 256 bits and defines the
-       padding for shorter ones, which padKeyBit below implements, so a short
-       key is legal rather than an error. Only the two cases padKeyBit would
-       paper over are refused: the empty key, which it turns into "00", and an
-       over-long one, which it truncates to 64 characters without saying so.
-       The limit is in hex characters, since that is what the key is here. */
-    if (key.empty() || key.size() > 64)
+       padding for shorter ones, so a short key is legal rather than an error.
+       Only the empty key and one longer than 32 bytes are refused. */
+    if (key.empty() || key.size() > 32)
         throw std::invalid_argument("Serpent key must be 1 to 32 bytes, got "
-                                    + std::to_string((key.size() + 1) / 2));
-    key = padKeyBit(key);
+                                    + std::to_string(key.size()));
+
+    /* Section 3 padding: a key shorter than 256 bits gets a 1 bit appended,
+       i.e. a 0x01 byte after the key bytes, then zero bytes up to 32. The
+       words are little-endian, like the blocks. */
+    std::array<uint8_t, 32> k{};
+    std::copy(key.begin(), key.end(), k.begin());
+    if (key.size() < 32)
+        k[key.size()] = 0x01;
+
     uint32_t wi;
     uint32_t w[140];
 
-    for (int i = 0; i<64; i = i + 8)
+    for (size_t i = 0; i < 8; ++i)
     {
-      w[i/8] = serpentWordFromHex(key.substr(i,8));
+      w[i] = serpentLoad32(&k[4 * i]);
     }
 
     /* Prekey recurrence (Section 4):

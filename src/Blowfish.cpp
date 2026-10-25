@@ -74,7 +74,7 @@ FORCE_INLINE void blowfish_round(uint32_t *l, uint32_t *r, int i, const Blowfish
 
 
 	
-	void Blowfish::generateKeys(const std::vector<uint8_t>& key){
+	void Blowfish::generateKeys(std::span<const uint8_t> key){
 		keySet = false;
 		/* Blowfish keys are 4 to 56 bytes (32 to 448 bits). The lower bound is
 		   part of the specification, so shorter keys are rejected here even

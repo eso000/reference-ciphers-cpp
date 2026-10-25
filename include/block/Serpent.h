@@ -3,7 +3,6 @@
 #include <cstdint>
 #include <vector>
 #include <span>
-#include <string>
 
 #include "block/BlockCipher.h"
 
@@ -18,7 +17,7 @@ public:
 
 	void applyInvSBox(uint32_t *x0,uint32_t *x1,uint32_t *x2, uint32_t *x3, int n) const;
 
-	void generateKeys(std::string key);
+	void generateKeys(std::span<const uint8_t> key);
 
 	void encrypt_block(uint8_t *x0,uint8_t *x1,uint8_t *x2,uint8_t *x3) const;
 

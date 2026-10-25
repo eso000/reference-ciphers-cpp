@@ -4,7 +4,6 @@
 #include <cstdint>
 #include <vector>
 #include <span>
-#include <string>
 
 #include "block/BlockCipher.h"
 
@@ -19,7 +18,7 @@ public:
 
 	uint8_t GFMult(int i, uint8_t s) const;
 
-	void generateKeys(std::string key);
+	void generateKeys(std::span<const uint8_t> key);
 
 	void encrypt_block128(uint8_t *p) const;
 

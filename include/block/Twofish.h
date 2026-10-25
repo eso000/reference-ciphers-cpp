@@ -4,7 +4,6 @@
 #include <cstdint>
 #include <vector>
 #include <span>
-#include <string>
 
 #include "block/BlockCipher.h"
 
@@ -28,7 +27,7 @@ public:
 
 	uint8_t RSAmul(int i, const uint8_t *p) const;
 
-	void generateKeys(const std::vector<uint8_t>& key);
+	void generateKeys(std::span<const uint8_t> key);
 
 	size_t blockSize() const noexcept override;
 

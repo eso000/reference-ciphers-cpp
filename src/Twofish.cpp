@@ -129,7 +129,7 @@ FORCE_INLINE void twofish_invRound(int i, uint32_t l0, uint32_t l1, uint32_t r0,
 		return result;
 	}
 
-	void Twofish::generateKeys(const std::vector<uint8_t>& key)
+	void Twofish::generateKeys(std::span<const uint8_t> key)
 	{
 		keySet = false;
 		if (key.size() != 16 && key.size() != 24 && key.size() != 32)

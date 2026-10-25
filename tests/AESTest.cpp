@@ -14,7 +14,7 @@ public:
 	std::unique_ptr<BlockCipher> makeKeyed(const char *keyHex) const override
 	{
 		std::unique_ptr<AES> c(new AES());
-		c->generateKeys(keyHex);
+		c->generateKeys(hexToVec(keyHex));
 		return c;
 	}
 };
@@ -38,8 +38,8 @@ int main()
 	try
 	{
 		AES c, d;
-		c.generateKeys(K256);
-		d.generateKeys(K256);
+		c.generateKeys(hexToVec(K256));
+		d.generateKeys(hexToVec(K256));
 		std::vector<uint8_t> pt = hexToVec("00112233445566778899aabbccddeeff00112233445566778899aabbcc");
 		std::vector<uint8_t> ct = c.encrypt(pt);
 		CHECK(ct.size() == 32, "encrypt(vector) pads 21 bytes to 32");
@@ -53,7 +53,7 @@ int main()
 	try
 	{
 		AES c;
-		c.generateKeys(K256);
+		c.generateKeys(hexToVec(K256));
 		std::vector<uint8_t> pt = hexToVec("00112233445566778899aabbccddeeff");
 		CHECK(c.encrypt(pt).size() == 32, "encrypt(vector) adds full block when aligned");
 	}
@@ -67,45 +67,32 @@ int main()
 	suite.runEcbRoundTrip(K192, 32, "AES-192");
 	suite.runEcbRoundTrip(K256, 32, "AES-256");
 
-	/* AES accepts a 128, 192 or 256-bit key, i.e. 32, 48 or 64 hex
-	   characters. generateKeys used to round the length up to the next of
-	   those sizes and pad with '0', so a 33-character key silently became a
-	   valid AES-192 key holding a '0' the caller never wrote, and anything
-	   past 64 characters was truncated. Both are refused now. */
+	/* AES accepts a 128, 192 or 256-bit key, i.e. 16, 24 or 32 bytes. An
+	   earlier version rounded the length up to the next of those sizes and
+	   padded with '0', so a 16.5-byte key silently became a valid AES-192 key
+	   holding a byte the caller never wrote, and anything longer than 32 bytes
+	   was truncated. Both are refused. */
 	printf("== key length validation ==\n");
 	{
-		const size_t accepted[] = {32, 48, 64};
+		const size_t accepted[] = {16, 24, 32};
 		for (size_t n : accepted)
 		{
 			bool threw = false;
-			try { AES c; c.generateKeys(std::string(n, '0')); }
+			try { AES c; c.generateKeys(std::vector<uint8_t>(n, 0)); }
 			catch (std::invalid_argument &) { threw = true; }
 			char name[96];
-			snprintf(name, sizeof(name), "%zu character key accepted (AES-%d)", n, (int)(n / 2) * 8);
+			snprintf(name, sizeof(name), "%zu byte key accepted (AES-%d)", n, (int)n * 8);
 			CHECK(!threw, name);
 		}
 
-		const size_t rejected[] = {0, 1, 16, 30, 31, 33, 40, 47, 49, 63, 65, 128};
+		const size_t rejected[] = {0, 1, 8, 15, 17, 20, 23, 25, 31, 33, 48, 64};
 		for (size_t n : rejected)
 		{
 			bool threw = false;
-			try { AES c; c.generateKeys(std::string(n, '0')); }
+			try { AES c; c.generateKeys(std::vector<uint8_t>(n, 0)); }
 			catch (std::invalid_argument &) { threw = true; }
 			char name[96];
-			snprintf(name, sizeof(name), "%zu character key rejected", n);
-			CHECK(threw, name);
-		}
-
-		/* The three lengths that used to be padded up, named individually
-		   because that silent coercion is the actual regression. */
-		const size_t padded[] = {1, 33, 49};
-		for (size_t n : padded)
-		{
-			bool threw = false;
-			try { AES c; c.generateKeys(std::string(n, '0')); }
-			catch (std::invalid_argument &) { threw = true; }
-			char name[96];
-			snprintf(name, sizeof(name), "%zu character key no longer zero-padded to a valid size", n);
+			snprintf(name, sizeof(name), "%zu byte key rejected", n);
 			CHECK(threw, name);
 		}
 	}
@@ -114,8 +101,8 @@ int main()
 	try
 	{
 		AES c, d;
-		c.generateKeys(K256);
-		d.generateKeys(K256);
+		c.generateKeys(hexToVec(K256));
+		d.generateKeys(hexToVec(K256));
 		std::vector<uint8_t> pt;
 		std::vector<uint8_t> ct = c.encrypt(pt);
 		CHECK(ct.size() == 16, "empty input padded to one full block");
@@ -129,8 +116,8 @@ int main()
 	try
 	{
 		AES c, d;
-		c.generateKeys(K128);
-		d.generateKeys(K128);
+		c.generateKeys(hexToVec(K128));
+		d.generateKeys(hexToVec(K128));
 		std::vector<uint8_t> pt(31, 0x42);
 		std::vector<uint8_t> ct = c.encrypt(pt);
 		CHECK(ct.size() == 32, "31-byte input padded to two blocks");
@@ -144,8 +131,8 @@ int main()
 	try
 	{
 		AES c, d;
-		c.generateKeys(K128);
-		d.generateKeys(K128);
+		c.generateKeys(hexToVec(K128));
+		d.generateKeys(hexToVec(K128));
 		std::vector<uint8_t> pt = hexToVec("00112233445566778899aabbccddeeff");
 		std::vector<uint8_t> ct = c.encrypt(pt);
 		ct[31] = 0x00;

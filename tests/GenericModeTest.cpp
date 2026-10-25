@@ -472,8 +472,8 @@ static void runAesModeKats()
 	};
 
 	AES e, d;
-	e.generateKeys(key);
-	d.generateKeys(key);
+	e.generateKeys(hexToVec(key));
+	d.generateKeys(hexToVec(key));
 	std::vector<uint8_t> pt = hexToVec(ptHex);
 
 	for (const Kat &k : kats)
@@ -534,8 +534,8 @@ int main()
 
 	{
 		AES c, d;
-		c.generateKeys("000102030405060708090a0b0c0d0e0f");
-		d.generateKeys("000102030405060708090a0b0c0d0e0f");
+		c.generateKeys(hexToVec("000102030405060708090a0b0c0d0e0f"));
+		d.generateKeys(hexToVec("000102030405060708090a0b0c0d0e0f"));
 		runCipher("AES", c, d);
 		runStreamTail("AES", c, d);
 		runStreamPaddingNotStripped(c, d);
@@ -564,8 +564,8 @@ int main()
 	}
 	{
 		DES c, d;
-		c.generateKeys("133457799BBCDFF1");
-		d.generateKeys("133457799BBCDFF1");
+		c.generateKeys(hexToVec("133457799BBCDFF1"));
+		d.generateKeys(hexToVec("133457799BBCDFF1"));
 		runCipher("DES", c, d);
 		runStreamTail("DES", c, d);
 		runStreamPaddingNotStripped(c, d);
@@ -574,8 +574,8 @@ int main()
 	}
 	{
 		Serpent c, d;
-		c.generateKeys("000102030405060708090a0b0c0d0e0f");
-		d.generateKeys("000102030405060708090a0b0c0d0e0f");
+		c.generateKeys(hexToVec("000102030405060708090a0b0c0d0e0f"));
+		d.generateKeys(hexToVec("000102030405060708090a0b0c0d0e0f"));
 		runCipher("Serpent", c, d);
 		runStreamTail("Serpent", c, d);
 		runStreamPaddingNotStripped(c, d);
@@ -587,8 +587,8 @@ int main()
 	{
 		AES u;
 		runKeyGuard("AES", u,
-			[&] { u.generateKeys("00"); },
-			[&] { u.generateKeys("000102030405060708090a0b0c0d0e0f"); });
+			[&] { u.generateKeys(hexToVec("00")); },
+			[&] { u.generateKeys(hexToVec("000102030405060708090a0b0c0d0e0f")); });
 	}
 	{
 		Blowfish u;
@@ -605,14 +605,14 @@ int main()
 	{
 		DES u;
 		runKeyGuard("DES", u,
-			[&] { u.generateKeys("00"); },
-			[&] { u.generateKeys("133457799BBCDFF1"); });
+			[&] { u.generateKeys(hexToVec("00")); },
+			[&] { u.generateKeys(hexToVec("133457799BBCDFF1")); });
 	}
 	{
 		Serpent u;
 		runKeyGuard("Serpent", u,
-			[&] { u.generateKeys(""); },
-			[&] { u.generateKeys("000102030405060708090a0b0c0d0e0f"); });
+			[&] { u.generateKeys(hexToVec("")); },
+			[&] { u.generateKeys(hexToVec("000102030405060708090a0b0c0d0e0f")); });
 	}
 
 	printf("== NIST SP 800-38A keystream-mode known answers ==\n");
@@ -621,8 +621,8 @@ int main()
 	printf("== mode output differs from ECB ==\n");
 	{
 		AES c, d;
-		c.generateKeys("000102030405060708090a0b0c0d0e0f");
-		d.generateKeys("000102030405060708090a0b0c0d0e0f");
+		c.generateKeys(hexToVec("000102030405060708090a0b0c0d0e0f"));
+		d.generateKeys(hexToVec("000102030405060708090a0b0c0d0e0f"));
 		std::vector<uint8_t> pt = hexToVec("00112233445566778899aabbccddeeff");
 		std::vector<uint8_t> iv;
 		for (int i = 0; i < 16; ++i)

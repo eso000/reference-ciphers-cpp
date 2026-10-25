@@ -19,7 +19,7 @@ public:
 	std::unique_ptr<BlockCipher> makeKeyed(const char *keyHex) const override
 	{
 		std::unique_ptr<DES> c(new DES(true));
-		c->generateKeys(keyHex);
+		c->generateKeys(hexToVec(keyHex));
 		return c;
 	}
 };
@@ -30,7 +30,7 @@ public:
 	std::unique_ptr<BlockCipher> makeKeyed(const char *keyHex) const override
 	{
 		std::unique_ptr<DES> c(new DES(false));
-		c->generateKeys(keyHex);
+		c->generateKeys(hexToVec(keyHex));
 		return c;
 	}
 };
@@ -90,8 +90,8 @@ int main()
 	printf("== alt vs naive agree ==\n");
 	{
 		DES a(true), b(false);
-		a.generateKeys(K3);
-		b.generateKeys(K3);
+		a.generateKeys(hexToVec(K3));
+		b.generateKeys(hexToVec(K3));
 		std::vector<uint8_t> in = hexToVec("123456ABCD132536");
 		std::vector<uint8_t> ca = in, cb = in;
 		a.encryptECB(std::span<uint8_t>(ca).first(8));
@@ -108,8 +108,8 @@ int main()
 	printf("== CBC round trip ==\n");
 	{
 		DES c, d;
-		c.generateKeys(K3);
-		d.generateKeys(K3);
+		c.generateKeys(hexToVec(K3));
+		d.generateKeys(hexToVec(K3));
 		std::vector<uint8_t> v, w, iv, iv2;
 		for (int i = 0; i < 16; ++i)
 			v.push_back((uint8_t)(0xA0 + i));
@@ -127,8 +127,8 @@ int main()
 	try
 	{
 		DES c, d;
-		c.generateKeys(K3);
-		d.generateKeys(K3);
+		c.generateKeys(hexToVec(K3));
+		d.generateKeys(hexToVec(K3));
 		std::vector<uint8_t> pt = hexToVec("00112233445566778899AABBCCDDEEFF");
 		std::vector<uint8_t> ct = c.encrypt(pt);
 		CHECK(ct.size() == 24, "encrypt(vector) pads 16 bytes to 24");
@@ -142,7 +142,7 @@ int main()
 	try
 	{
 		DES c;
-		c.generateKeys(K3);
+		c.generateKeys(hexToVec(K3));
 		std::vector<uint8_t> pt = hexToVec("ABCD");
 		CHECK(c.encrypt(pt).size() == 8, "encrypt(vector) pads 2 bytes to one block");
 	}
@@ -153,8 +153,8 @@ int main()
 	try
 	{
 		DES c, d;
-		c.generateKeys(K3);
-		d.generateKeys(K3);
+		c.generateKeys(hexToVec(K3));
+		d.generateKeys(hexToVec(K3));
 		std::vector<uint8_t> pt;
 		std::vector<uint8_t> ct = c.encrypt(pt);
 		CHECK(ct.size() == 8, "empty input padded to one full block");
@@ -168,8 +168,8 @@ int main()
 	try
 	{
 		DES c, d;
-		c.generateKeys(K3);
-		d.generateKeys(K3);
+		c.generateKeys(hexToVec(K3));
+		d.generateKeys(hexToVec(K3));
 		std::vector<uint8_t> pt = hexToVec("0011223344556677");
 		std::vector<uint8_t> ct = c.encrypt(pt);
 		ct[15] = 0x00;
@@ -185,26 +185,26 @@ int main()
 		CHECK(0, "vector API invalid padding");
 	}
 
-	/* DES takes a 64-bit key, i.e. exactly 16 hex characters. The check is
-	   here rather than in a shared helper because DES is the one cipher whose
-	   key is a single word. */
+	/* DES takes a 64-bit key, i.e. exactly 8 bytes. The check is here rather
+	   than in a shared helper because DES is the one cipher whose key is a
+	   single word. */
 	printf("== key validation ==\n");
 	{
 		bool threw = false;
-		try { DES c; c.generateKeys(std::string(16, '0')); }
+		try { DES c; c.generateKeys(std::vector<uint8_t>(8, 0)); }
 		catch (std::invalid_argument &) { threw = true; }
-		CHECK(!threw, "16 character key accepted");
+		CHECK(!threw, "8 byte key accepted");
 
-		/* Every other length, including the multiples of 16 that a
-		   hex-length check expressed in bytes would wrongly admit. */
-		const size_t rejected[] = {0, 1, 8, 15, 17, 24, 32, 48, 64};
+		/* Every other length, including the multiples of 8 that a check
+		   written for another key size would wrongly admit. */
+		const size_t rejected[] = {0, 1, 4, 7, 9, 16, 24, 32, 64};
 		for (size_t n : rejected)
 		{
 			threw = false;
-			try { DES c; c.generateKeys(std::string(n, '0')); }
+			try { DES c; c.generateKeys(std::vector<uint8_t>(n, 0)); }
 			catch (std::invalid_argument &) { threw = true; }
 			char name[96];
-			snprintf(name, sizeof(name), "%zu character key rejected", n);
+			snprintf(name, sizeof(name), "%zu byte key rejected", n);
 			CHECK(threw, name);
 		}
 	}

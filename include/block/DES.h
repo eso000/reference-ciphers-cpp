@@ -3,7 +3,6 @@
 #include <cstdint>
 #include <vector>
 #include <span>
-#include <string>
 
 #include "block/BlockCipher.h"
 
@@ -29,7 +28,7 @@ public:
 
 	static uint64_t fp_perm_alt(uint64_t block);
 
-	void generateKeys(std::string key);
+	void generateKeys(std::span<const uint8_t> key);
 
 	size_t blockSize() const noexcept override;
 

@@ -118,12 +118,14 @@ uint64_t DES::fp_perm_alt(uint64_t block)
 		return result;
 	}
 
-	void DES::generateKeys(std::string key){
+	void DES::generateKeys(std::span<const uint8_t> key){
 		keySet = false;
-		if (key.size() != 16)
-			throw std::invalid_argument("DES key must be 16 hex characters, got " + std::to_string(key.size()));
+		if (key.size() != 8)
+			throw std::invalid_argument("DES key must be 8 bytes, got " + std::to_string(key.size()));
 		Subkeys.clear();
-		uint64_t leftKey = std::stoull(key, 0, 16);
+		uint64_t leftKey = 0;
+		for (uint8_t b : key)
+			leftKey = (leftKey << 8) | b;
 		leftKey = permutate(leftKey, keyperm1_data, 64);
 		uint64_t rightKey = leftKey&0b1111111111111111111111111111;
 		leftKey >>= 28;

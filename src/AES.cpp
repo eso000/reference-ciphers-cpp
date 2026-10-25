@@ -167,17 +167,15 @@ FORCE_INLINE void aes_invRound(uint32_t col1[4], uint32_t col2[4], const AES &a,
 	}
 
 
-	void AES::generateKeys(std::string key){
+	void AES::generateKeys(std::span<const uint8_t> key){
 		keySet = false;
-		/* AES takes a 128, 192 or 256-bit key, i.e. 32, 48 or 64 hex
-		   characters. This used to round the length up to the next of those
-		   sizes and pad with '0', so a 33-character key silently became a
-		   valid AES-192 key containing a '0' the caller never wrote, and
-		   anything past 64 characters was truncated. Reject instead. */
-		if (key.size() != 32 && key.size() != 48 && key.size() != 64)
-			throw std::invalid_argument("AES key must be 16, 24 or 32 bytes, got " + std::to_string(key.size() / 2));
+		/* AES takes a 128, 192 or 256-bit key, i.e. 16, 24 or 32 bytes. Any
+		   other length is rejected, never padded or truncated into a size
+		   the caller did not ask for. */
+		if (key.size() != 16 && key.size() != 24 && key.size() != 32)
+			throw std::invalid_argument("AES key must be 16, 24 or 32 bytes, got " + std::to_string(key.size()));
 
-		int N = key.length()/8;
+		int N = (int)key.size() / 4;
 		int R = 1;
 		if (N == 4)
 			R = 11;
@@ -187,13 +185,9 @@ FORCE_INLINE void aes_invRound(uint32_t col1[4], uint32_t col2[4], const AES &a,
 			R = 15;
 
 		std::vector<std::vector<uint8_t>> W;
-		for(int i=0; i<(int)key.length();i = i+8){
-			W.push_back({(uint8_t)std::stoul(key.substr(i,2), 0, 16),
-						(uint8_t)std::stoul(key.substr(i+2,2), 0, 16),
-						(uint8_t)std::stoul(key.substr(i+4,2), 0, 16),
-						(uint8_t)std::stoul(key.substr(i+6,2), 0, 16) });
-		}
-			
+		for (size_t i = 0; i < key.size(); i += 4)
+			W.push_back({key[i], key[i + 1], key[i + 2], key[i + 3]});
+
 		uint8_t rcon[4] = {1, 0, 0, 0};
 		std::vector<uint8_t> temp;
 		for (int x = N; x<4*R; ++x){

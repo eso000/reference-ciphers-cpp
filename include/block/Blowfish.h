@@ -19,8 +19,9 @@ public:
 	std::array<uint32_t, 256> SBoxes3{};
 	std::vector<uint32_t> Subkeys;
 
-	void generateKeys(const std::vector<uint8_t>& key);
-	
+
+	void generateKeys(std::span<const uint8_t> key);
+
 	size_t blockSize() const noexcept override;
 
 	void encryptBlock(uint8_t *block) const override;
