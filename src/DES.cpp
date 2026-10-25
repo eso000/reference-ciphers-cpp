@@ -31,9 +31,9 @@ FORCE_INLINE uint32_t rotl28(uint32_t xr, int times)
 		return permutate(temp, PBox,32);
 	}
 
-	void DES::round(word &l, word &r, int i) const
+	void DES::round(uint32_t &l, uint32_t &r, int i) const
 	{
-		l.w ^= (uint32_t)feistel(r.w, i);
+		l ^= (uint32_t)feistel(r, i);
 	}
 
 DES::DES(bool useAlt) : use_alt(useAlt)
@@ -162,17 +162,16 @@ uint64_t DES::fp_perm_alt(uint64_t block)
 		requireKey();
 		uint8_t *lb = block;
 		uint8_t *rb = block + 4;
-		union word left, right;
-		left.b[3] = *lb; left.b[2] = *(lb+1); left.b[1] = *(lb+2); left.b[0] = *(lb+3);
-		right.b[3] = *rb; right.b[2] = *(rb+1); right.b[1] = *(rb+2); right.b[0] = *(rb+3);
+		uint32_t left = load32_be(lb);
+		uint32_t right = load32_be(rb);
 
 		uint64_t temp;
 		if (use_alt)
-			temp = ip_perm_alt((uint64_t)left.w << 32 | right.w);
+			temp = ip_perm_alt((uint64_t)left << 32 | right);
 		else
-					temp = permutate((uint64_t)left.w<<32|right.w,initialperm, 64);
-		left.w = temp >>32;
-		right.w = temp &0xffffffffl;
+					temp = permutate((uint64_t)left<<32|right,initialperm, 64);
+		left = (uint32_t)(temp >> 32);
+		right = (uint32_t)(temp & 0xffffffff);
 
 		round (left, right, 0) ;  round (right, left, 1) ;
 		round (left, right, 2) ;  round (right, left, 3) ;
@@ -184,14 +183,14 @@ uint64_t DES::fp_perm_alt(uint64_t block)
 		round (left, right, 14) ; round (right, left, 15) ;
 
 		if (use_alt)
-			temp = fp_perm_alt((uint64_t)right.w << 32 | left.w);
+			temp = fp_perm_alt((uint64_t)right << 32 | left);
 		else
-					temp = permutate((uint64_t)right.w<<32|left.w,inverseperm, 64);
+					temp = permutate((uint64_t)right<<32|left,inverseperm, 64);
 
-		right.w = temp &0xffffffffl;
-		left.w = temp >> 32;
-		*lb = left.b[3]; *(lb+1) = left.b[2]; *(lb+2) = left.b[1]; *(lb+3) = left.b[0];
-		*rb = right.b[3]; *(rb+1) = right.b[2]; *(rb+2) = right.b[1];*(rb+3) = right.b[0];
+		right = (uint32_t)(temp & 0xffffffff);
+		left = (uint32_t)(temp >> 32);
+		store32_be(lb, left);
+		store32_be(rb, right);
 	}
 
 	void DES::decryptBlock(uint8_t *block) const
@@ -199,17 +198,16 @@ uint64_t DES::fp_perm_alt(uint64_t block)
 		requireKey();
 		uint8_t *lb = block;
 		uint8_t *rb = block + 4;
-		union word left, right;
-		left.b[3] = *lb; left.b[2] = *(lb+1); left.b[1] = *(lb+2); left.b[0] = *(lb+3);
-		right.b[3] = *rb; right.b[2] = *(rb+1); right.b[1] = *(rb+2); right.b[0] = *(rb+3);
+		uint32_t left = load32_be(lb);
+		uint32_t right = load32_be(rb);
 
 		uint64_t temp;
 		if (use_alt)
-			temp = ip_perm_alt((uint64_t)left.w << 32 | right.w);
+			temp = ip_perm_alt((uint64_t)left << 32 | right);
 		else
-					temp = permutate((uint64_t)left.w<<32|right.w,initialperm, 64);
-		left.w = temp >>32;
-		right.w = temp &0xffffffffl;
+					temp = permutate((uint64_t)left<<32|right,initialperm, 64);
+		left = (uint32_t)(temp >> 32);
+		right = (uint32_t)(temp & 0xffffffff);
 
 		round (left, right, 15) ;  round (right, left, 14) ;
 		round (left, right, 13) ;  round (right, left, 12) ;
@@ -221,14 +219,14 @@ uint64_t DES::fp_perm_alt(uint64_t block)
 		round (left, right,  1) ;  round (right, left,  0) ;
 
 		if (use_alt)
-			temp = fp_perm_alt((uint64_t)right.w << 32 | left.w);
+			temp = fp_perm_alt((uint64_t)right << 32 | left);
 		else
-					temp = permutate((uint64_t)right.w<<32|left.w,inverseperm, 64);
+					temp = permutate((uint64_t)right<<32|left,inverseperm, 64);
 
-		right.w = temp &0xffffffffl;
-		left.w = temp >> 32;
-		*lb = left.b[3]; *(lb+1) = left.b[2]; *(lb+2) = left.b[1]; *(lb+3) = left.b[0];
-		*rb = right.b[3]; *(rb+1) = right.b[2]; *(rb+2) = right.b[1];*(rb+3) = right.b[0];
+		right = (uint32_t)(temp & 0xffffffff);
+		left = (uint32_t)(temp >> 32);
+		store32_be(lb, left);
+		store32_be(rb, right);
 	}
 
 	size_t DES::blockSize() const noexcept

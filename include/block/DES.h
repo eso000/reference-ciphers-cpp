@@ -37,14 +37,9 @@ public:
 
 	uint64_t permutate(uint64_t x, std::vector<uint8_t> P, int base_size) const;
 
-	union word{
-		uint32_t w;
-		uint8_t b[4];
-	};
-
 	uint64_t feistel(uint32_t r, int i) const;
 
-	void round(word &l, word &r, int i) const;
+	void round(uint32_t &l, uint32_t &r, int i) const;
 
 	static uint64_t ip_perm_alt(uint64_t block);
 
