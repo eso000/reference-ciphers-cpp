@@ -10,26 +10,22 @@
 namespace block {
 
 class Blowfish final : public BlockCipher {
-public:
+  public:
+    std::array<uint32_t, 256> SBoxes0{};
+    std::array<uint32_t, 256> SBoxes1{};
+    std::array<uint32_t, 256> SBoxes2{};
+    std::array<uint32_t, 256> SBoxes3{};
+    std::vector<uint32_t> Subkeys;
 
+    void generateKeys(std::span<const uint8_t> key);
 
-	std::array<uint32_t, 256> SBoxes0{};
-	std::array<uint32_t, 256> SBoxes1{};
-	std::array<uint32_t, 256> SBoxes2{};
-	std::array<uint32_t, 256> SBoxes3{};
-	std::vector<uint32_t> Subkeys;
+    size_t blockSize() const noexcept override;
 
+    void encryptBlock(uint8_t *block) const override;
 
-	void generateKeys(std::span<const uint8_t> key);
+    void decryptBlock(uint8_t *block) const override;
 
-	size_t blockSize() const noexcept override;
-
-	void encryptBlock(uint8_t *block) const override;
-
-	void decryptBlock(uint8_t *block) const override;
-
-	std::vector<uint8_t> encrypt(std::span<const uint8_t> plt, std::span<const uint8_t> iv) const;
-
+    std::vector<uint8_t> encrypt(std::span<const uint8_t> plt, std::span<const uint8_t> iv) const;
 };
 
 } // namespace block

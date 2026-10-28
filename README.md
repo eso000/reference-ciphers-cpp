@@ -57,6 +57,12 @@ Six modes of operation are shared by every cipher through the `BlockCipher` base
 - A C++20 compiler with `<span>` and `<bit>` (tested with g++; GCC 10+ or Clang 10+). No third-party libraries, no runtime dependencies.
 - `make` to build.
 
+### Formatting
+
+The project uses [clang-format](https://clang.llvm.org/docs/ClangFormat.html) with the
+configuration in [`.clang-format`](.clang-format). Formatting is enforced in CI for C
+and header files in `src/`, `include/` and `tests/`.
+
 ## Build and test
 
 The repository root is the build root. All build artifacts are produced under `build/`.

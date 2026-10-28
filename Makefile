@@ -15,7 +15,7 @@ DEPS     := $(wildcard $(INC_DIR)/block/*.h $(SRC_DIR)/*.h $(TEST_DIR)/*.h)
 # Shared test scaffolding: the check/report harness and the generic runners.
 TEST_SUPPORT := $(TEST_DIR)/TestBase.cpp
 
-.PHONY: all test clean
+.PHONY: all test clean format format-check
 
 all: $(BINS)
 
@@ -38,3 +38,12 @@ test: all
 
 clean:
 	rm -rf $(BUILD_DIR)
+
+FORMAT_DIRS := src include tests
+FORMAT_FILES := $(shell find $(FORMAT_DIRS) -type f \( -name '*.c' -o -name '*.h' \) 2>/dev/null)
+
+format:
+	clang-format -i $(FORMAT_FILES)
+
+format-check:
+	clang-format --dry-run --Werror $(FORMAT_FILES)

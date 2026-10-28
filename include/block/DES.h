@@ -9,37 +9,34 @@
 namespace block {
 
 class DES final : public BlockCipher {
-public:
+  public:
+    explicit DES(bool useAlt = true) : use_alt(useAlt) {}
 
-	explicit DES(bool useAlt = true) : use_alt(useAlt) {}
+    bool use_alt;
 
-	bool use_alt;
+    std::vector<uint64_t> Subkeys;
 
+    static uint64_t permutate(uint64_t x, std::span<const uint8_t> P, int base_size);
 
-	std::vector<uint64_t> Subkeys;
+    uint64_t feistel(uint32_t r, int i) const;
 
-	static uint64_t permutate(uint64_t x, std::span<const uint8_t> P, int base_size);
+    void round(uint32_t &l, uint32_t &r, int i) const;
 
-	uint64_t feistel(uint32_t r, int i) const;
+    static uint64_t ip_perm_alt(uint64_t block);
 
-	void round(uint32_t &l, uint32_t &r, int i) const;
+    static uint64_t fp_perm_alt(uint64_t block);
 
-	static uint64_t ip_perm_alt(uint64_t block);
+    void generateKeys(std::span<const uint8_t> key);
 
-	static uint64_t fp_perm_alt(uint64_t block);
+    size_t blockSize() const noexcept override;
 
-	void generateKeys(std::span<const uint8_t> key);
+    void encryptBlock(uint8_t *block) const override;
 
-	size_t blockSize() const noexcept override;
+    void decryptBlock(uint8_t *block) const override;
 
-	void encryptBlock(uint8_t *block) const override;
+    std::vector<uint8_t> encrypt(std::span<const uint8_t> plt) const;
 
-	void decryptBlock(uint8_t *block) const override;
-
-	std::vector<uint8_t> encrypt(std::span<const uint8_t> plt) const;
-
-	std::vector<uint8_t> decrypt(std::span<const uint8_t> plt) const;
-
+    std::vector<uint8_t> decrypt(std::span<const uint8_t> plt) const;
 };
 
 } // namespace block
